@@ -1,0 +1,28 @@
+---
+# ============================================================================
+# Common variables for RemnaWave panel
+# ============================================================================
+# Эти переменные применяются ко всем хостам в группе [panel]
+# ============================================================================
+
+# Имя пользователя для создания на сервере панели
+system_user: "admin"
+
+# Пароль для пользователя (будет захеширован)
+# Генерация: openssl rand -base64 24
+system_user_password: "CHANGE_ME_SECURE_PASSWORD"
+
+# SSH публичный ключ для доступа к серверу панели
+# Получить: cat ~/.ssh/id_rsa.pub
+# Или: cat ~/.ssh/id_ed25519.pub
+ssh_public_key: "ssh-rsa AAAAB3NzaC1ycrY+dR"
+
+# Prometheus Basic Auth для метрик RemnaWave панели
+# Используется в panel.yml и monitoring.yml для доступа к /api/metrics
+prometheus_remnawave_username: "admin"
+
+# SHA-512 hash пароля для Prometheus Basic Auth
+# Шаг 1: Выберите пароль (например: openssl rand -base64 24)
+# Шаг 2: Создайте hash: echo -n 'your_password' | sha512sum | cut -d' ' -f1
+prometheus_remnawave_password: "CHANGE_ME_SHA512_HASH_OF_YOUR_PASSWORD"
+

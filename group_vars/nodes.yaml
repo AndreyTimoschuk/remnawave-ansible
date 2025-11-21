@@ -1,0 +1,41 @@
+---
+# ============================================================================
+# Common variables for all RemnaWave nodes
+# ============================================================================
+# Эти переменные применяются ко всем хостам в группе [nodes]
+# ============================================================================
+
+# Имя пользователя для создания на серверах
+system_user: "admin"
+
+# Пароль для пользователя (будет захеширован)
+# Генерация: openssl rand -base64 24
+system_user_password: "CHANGE_ME_SECURE_PASSWORD"
+
+# Порт приложения RemnaNode
+app_port: 2222
+
+# IP адрес сервера мониторинга (обычно IP панели)
+monitoring_ip: "192.0.2.100"
+
+# IP адрес Consul сервера (обычно IP панели, тот же что и monitoring_ip)
+consul_server_ip: "192.0.2.100"
+
+# Имя хоста панели из inventory.ini
+# Должно совпадать с именем хоста в секции [panel]
+panel_hostname: "panel-usa"
+
+# SSH публичный ключ для доступа к серверам
+# Получить: cat ~/.ssh/id_rsa.pub
+# Или: cat ~/.ssh/id_ed25519.pub
+ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDoYIBrlhhEduTyNA0Cgm96fmh6EwMWyFgP5hHYCII98lbSRU1jAQp9mRFt3535dZPrY+dR+ZG3TVQMMGsE7x3oOis9jRnpDzLKKiDsHBZFdr4TDANW9+pumF1HnQmouWqTzkwxk/y2Kn5Nipyjrsw6Iog5JtYRjUVTxpssPYJtTRS0Q/L+O9BtyU9m7dToo5PWE3TzuQFpGUArmg382irfh1pP4DiHpF8lJCby8YPly7W9fuKSu4XSddPRTeYvNZUKx1FnCqeQ0CiviTwAD0e6Wqn2e/YIU2KG/gmBWE8qqTo2NuUuMuDEPvkHvL6NriPPIc8wFqHSsyaIPMVWeAXzY+LPwZ+9JbWsSijHv8d6mtfISctmAxrP1wA3hI50aXuDNs8N8NAtI0CjBbs9GfK0AtWjJK+w37p35MyWk22BsKrg03JWUhcMEnyMlNMLSSYTlYzdxreJMzxHv6JUtl3SxkfJ7adwNZfhVLO7e2pLcYL9n8xdO8UzgH9786tqjpLexDpW51+HPskIvIT0WwoyYeZB0IjX7+rUN1dX1NkSxjNFYvKFBqge1wyRgHRzlyCXNUH1gYf5RDx5NKrW93+3wIxfwrHSdTkk15dm5H7dtFpZ2OdG7qhricFvGeEFSf3fvimsd8snHdZFS7Ij7GOskzj2lDkUazGkThlP6IfdDw== YOUR_SSH_KEY_COMMENT"
+
+# Prometheus Basic Auth для метрик RemnaWave панели
+# Используется в panel.yml и monitoring.yml для доступа к /api/metrics
+prometheus_remnawave_username: "admin"
+
+# SHA-512 hash пароля для Prometheus Basic Auth
+# Шаг 1: Выберите пароль (например: openssl rand -base64 24)
+# Шаг 2: Создайте hash: echo -n 'your_password' | sha512sum | cut -d' ' -f1
+prometheus_remnawave_password: "CHANGE_ME_SHA512_HASH_OF_YOUR_PASSWORD"
+

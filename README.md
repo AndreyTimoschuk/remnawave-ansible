@@ -1,6 +1,6 @@
 # RemnaWave Ansible Automation
 
-Автоматическое развертывание инфраструктуры RemnaWave прокси-сервера.
+Автоматическое развертывание инфраструктуры RemnaWave.
 
 > **Примечание:** Этот плейбук не претендует на звание самого лучшего или простого и сделан исключительно по вкусу и пожеланию автора. Если кто-то хочет что-то изменить или улучшить - без проблем, делайте форк и адаптируйте под свои нужды.
 
@@ -14,9 +14,101 @@
 | **nodes.yml** | Прокси ноды (RemnaNode, Caddy, Consul, мониторинг, селфстил)
 | **monitoring.yml** | Мониторинг (Prometheus, Grafana)
 
+## Ключевые особенности
+
+### Автоматическое обнаружение нод через Consul
+
+Не нужно вручную добавлять каждую ноду в конфигурацию мониторинга. Consul автоматически регистрирует все ноды, а Prometheus их находит сам. Добавили новую ноду? Она сразу появится в мониторинге без дополнительных настроек.
+
+**Как это работает:**
+- На панели запускается Consul Server
+- На каждой ноде запускается Consul Agent, который подключается к серверу
+- Нода регистрируется в Consul со своим именем и IP
+- Prometheus автоматически находит все ноды через Consul и начинает собирать метрики
+
+### Self-hosted страницы подписок (селфстил)
+
+**Как это работает:**
+- На каждой ноде запускается Caddy веб-сервер
+- Вы настраиваете Caddyfile для ноды (например, `templates/caddyfiles/usa.j2`)
+- Caddy раздает статические файлы из указанной директории (например, `/srv/games-site`)
+- Автоматический HTTPS через Let's Encrypt
+- Можно использовать свой домен для каждой ноды
+
+### Полноценный мониторинг из коробки
+
+Сразу после развертывания у вас будет рабочий мониторинг с красивыми графиками.
+
+**Что включено:**
+- **Prometheus** - собирает метрики со всех нод и панели
+- **Grafana** - визуализация с готовыми дашбордами
+- **Node Exporter** - системные метрики (CPU, RAM, диск, сеть) с каждой ноды
+- **Метрики RemnaWave** - статистика пользователей, трафика, нод прямо из панели
+- Автоматическое обнаружение нод - не нужно вручную добавлять каждую ноду
+
+**Готовые дашборды:**
+- Мониторинг всех нод в одном месте
+- Детальная статистика по каждой ноде
+- Метрики RemnaWave (пользователи, трафик, подписки)
+
+### Автоматическая безопасность
+
+Плейбук настраивает базовую безопасность без лишних телодвижений.
+
+**Что делается:**
+- **UFW Firewall** - открываются только нужные порты (443 для HTTPS, 22 для SSH. На remnanode доступ до ноды по порту 2222 (или какой укажете) будет только с хоста remnawave)
+- **Fail2Ban** - автоматически блокирует IP при попытках брутфорса
+- **SSH Hardening** - отключается вход по паролю, только по ключам
+- **Rate Limiting** - защита от DDoS на порту 443 для панели
+- **UFW Blacklist** - автоматическая блокировка сканеров РКН
+- Автоматические обновления безопасности
+
+### Оптимизация производительности
+
+Все настройки для максимальной производительности прокси уже включены.
+
+**Что оптимизируется:**
+- **BBR** - алгоритм для лучшей пропускной способности сети
+- **sysctl** - настройки ядра Linux для работы с большим количеством соединений
+- **Docker** - оптимизация для контейнеров
+- **Swap** - автоматический расчет размера подкачки
+- Увеличенные лимиты на открытые файлы и соединения
+
+### Управление логами
+
+Логи не засоряют диск - все автоматически ротируется и очищается.
+
+**Что настроено:**
+- **Logrotate** - ротация всех логов (Docker, системные, приложения)
+- **Journald лимиты** - ограничение размера системных логов до 500MB
+- Автоматическая очистка старых логов
+- Сжатие старых логов для экономии места
+
+### Гибкая настройка
+
+Все важные параметры вынесены в переменные - легко настроить под себя.
+
+**Что можно настроить:**
+- Домены для панели и нод
+- Порты приложений
+- Пароли и секреты (с командами для генерации)
+- Caddyfile для каждой ноды отдельно
+- Параметры мониторинга
+
+### Автоматические обновления
+
+Некоторые вещи обновляются сами без вашего участия.
+
+**Что обновляется автоматически:**
+- **GEO файлы для RemnaNode** - каждое воскресенье
+- **UFW Blacklist** - ежедневно обновляется список блокируемых IP
+- **Обновления безопасности** - через unattended-upgrades
+
 ## Быстрый старт
 
 ### 1. Установка
+
+> **Примечание для Windows:** Ansible не работает на Windows напрямую. Если вы используете Windows, запустите виртуальную машину с Linux или используйте WSL2 (Windows Subsystem for Linux).
 
 ```bash
 # Установить Ansible
@@ -32,7 +124,7 @@ cd remnawave-ansible
 
 ### 2. Подготовка DNS записей
 
-**ВАЖНО:** Перед началом развертывания убедитесь, что все DNS записи для ваших доменов уже добавлены и пропагатированы:
+**ВАЖНО:** Перед началом развертывания убедитесь, что все DNS записи для ваших доменов уже добавлены:
 
 - `panel.yourdomain.com` → IP панели
 - `monitoring.yourdomain.com` → IP панели (если мониторинг на панели)
@@ -174,6 +266,346 @@ ansible-playbook -i inventory.ini monitoring.yml --limit panel
 # Готово! Откройте https://monitoring.yourdomain.com
 ```
 
+## Подробный мануал на примере usa и panel-usa
+
+Вот пошаговая инструкция как развернуть RemnaWave с нуля на примере ноды `usa` и панели `panel-usa`. Все команды можно копировать и выполнять.
+
+### Шаг 1: Установка Ansible
+
+Если у вас еще нет Ansible, установите его:
+
+> **Примечание для Windows:** Ansible не работает на Windows напрямую. Если вы используете Windows, запустите виртуальную машину с Linux или используйте WSL2.
+
+```bash
+# На macOS
+brew install ansible
+
+# На Linux (Ubuntu/Debian)
+sudo apt update
+sudo apt install python3-pip
+pip3 install ansible
+
+# Установить коллекцию для работы с Docker
+ansible-galaxy collection install community.docker
+```
+
+### Шаг 2: Создание SSH ключа
+
+Если у вас еще нет SSH ключа, создайте его:
+
+```bash
+# Создать новый SSH ключ (если его нет)
+ssh-keygen -t ed25519 -C "your_email@example.com"
+
+# Или если ed25519 не поддерживается, используйте RSA
+ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+
+# Когда спросит где сохранить, просто нажмите Enter (сохранится в ~/.ssh/id_ed25519 или ~/.ssh/id_rsa)
+# Когда спросит пароль, можно оставить пустым или задать (рекомендуется задать)
+```
+
+Теперь скопируйте публичный ключ:
+
+```bash
+# Для ed25519
+cat ~/.ssh/id_ed25519.pub
+
+# Или для RSA
+cat ~/.ssh/id_rsa.pub
+```
+
+Скопируйте весь вывод (начинается с `ssh-ed25519` или `ssh-rsa`) - он понадобится дальше.
+
+### Шаг 3: Подготовка DNS записей
+
+Перед началом развертывания нужно добавить DNS записи. Предположим, что:
+- IP панели: `192.0.2.100`
+- IP ноды usa: `192.0.2.1`
+
+Добавьте в вашем DNS провайдере (Cloudflare, Namecheap и т.д.):
+
+```
+panel-usa.example.com    A    192.0.2.100
+monitoring-usa.example.com    A    192.0.2.100
+cdn-usa.example.com     A    192.0.2.1
+```
+
+Замените `example.com` на ваш домен. Подождите пока DNS записи распространятся (обычно 5-15 минут, иногда до часа). Проверить можно командой:
+
+```bash
+dig panel-usa.example.com +short
+# Должен вернуть: 192.0.2.100
+```
+
+### Шаг 4: Настройка inventory.ini
+
+Откройте файл `inventory.ini` и настройте его:
+
+```ini
+[nodes]
+usa ansible_host=192.0.2.1 ansible_user=root ansible_ssh_pass=ВАШ_ПАРОЛЬ_ОТ_СЕРВЕРА
+
+[panel]
+panel-usa ansible_host=192.0.2.100 ansible_user=root ansible_ssh_pass=ВАШ_ПАРОЛЬ_ОТ_СЕРВЕРА
+
+[nodes:vars]
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+```
+
+Замените:
+- `192.0.2.1` на реальный IP вашей ноды usa
+- `192.0.2.100` на реальный IP вашей панели
+- `ВАШ_ПАРОЛЬ_ОТ_СЕРВЕРА` на root пароль от серверов
+
+**Важно:** После первого запуска плейбука парольная авторизация будет отключена, и нужно будет убрать `ansible_ssh_pass` из inventory.ini.
+
+### Шаг 5: Настройка group_vars
+
+#### group_vars/nodes.yaml
+
+Откройте `group_vars/nodes.yaml` и заполните:
+
+```yaml
+---
+system_user: "admin"
+system_user_password: "ВАШ_СЛУЧАЙНЫЙ_ПАРОЛЬ"
+app_port: 2222
+monitoring_ip: "192.0.2.100"
+consul_server_ip: "192.0.2.100"
+panel_hostname: "panel-usa"
+ssh_public_key: "ВАШ_SSH_ПУБЛИЧНЫЙ_КЛЮЧ"
+prometheus_remnawave_username: "admin"
+prometheus_remnawave_password: "SHA512_HASH_ПАРОЛЯ"
+```
+
+Как заполнить:
+
+1. **system_user_password** - сгенерируйте случайный пароль:
+   ```bash
+   openssl rand -base64 24
+   ```
+   Скопируйте результат и вставьте вместо `ВАШ_СЛУЧАЙНЫЙ_ПАРОЛЬ`.
+
+2. **monitoring_ip** и **consul_server_ip** - это IP панели (192.0.2.100 в нашем примере).
+
+3. **panel_hostname** - имя панели из inventory.ini, у нас это `panel-usa`.
+
+4. **ssh_public_key** - тот ключ, который вы скопировали на шаге 2. Вставьте его целиком, например:
+   ```
+   ssh_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGxK8vQ... your_email@example.com"
+   ```
+
+5. **prometheus_remnawave_password** - это SHA-512 hash пароля. Сначала сгенерируйте пароль:
+   ```bash
+   openssl rand -base64 24
+   ```
+   Потом создайте hash:
+   ```bash
+   echo -n 'ваш_пароль_здесь' | sha512sum | cut -d' ' -f1
+   ```
+   Скопируйте hash и вставьте вместо `SHA512_HASH_ПАРОЛЯ`.
+
+#### group_vars/panel.yaml
+
+Откройте `group_vars/panel.yaml` и заполните аналогично:
+
+```yaml
+---
+system_user: "admin"
+system_user_password: "ТОТ_ЖЕ_ПАРОЛЬ_ЧТО_В_NODES"
+ssh_public_key: "ТОТ_ЖЕ_КЛЮЧ_ЧТО_В_NODES"
+prometheus_remnawave_username: "admin"
+prometheus_remnawave_password: "ТОТ_ЖЕ_HASH_ЧТО_В_NODES"
+```
+
+Можно использовать те же значения, что и в `nodes.yaml`.
+
+### Шаг 6: Настройка host_vars для панели
+
+Создайте файл `host_vars/panel-usa.yml`:
+
+```bash
+nano host_vars/panel-usa.yml
+```
+
+Вставьте следующее:
+
+```yaml
+---
+remnawave_panel_domain: "panel-usa.example.com"
+monitoring_domain: "monitoring-usa.example.com"
+grafana_port: 3302
+
+# JWT секреты - сгенерируйте два разных ключа
+jwt_auth_secret: "ВАШ_ПЕРВЫЙ_JWT_СЕКРЕТ"
+jwt_api_tokens_secret: "ВАШ_ВТОРОЙ_JWT_СЕКРЕТ"
+
+# PostgreSQL настройки
+postgres_user: "remnawave"
+postgres_password: "ВАШ_ПАРОЛЬ_POSTGRES"
+postgres_db: "remnawave"
+
+# Caddy Authentication настройки
+caddy_auth_admin_user: "admin"
+caddy_auth_admin_email: "admin@example.com"
+caddy_auth_admin_secret: "ВАШ_ПАРОЛЬ_ДЛЯ_CADDY_AUTH"
+caddy_auth_token_lifetime: 2592000
+```
+
+Как заполнить:
+
+1. **remnawave_panel_domain** и **monitoring_domain** - ваши домены из шага 3.
+
+2. **jwt_auth_secret** и **jwt_api_tokens_secret** - сгенерируйте два разных ключа:
+   ```bash
+   openssl rand -hex 64
+   ```
+   Выполните команду дважды, получите два разных ключа и вставьте их.
+
+3. **postgres_password** - сгенерируйте пароль:
+   ```bash
+   openssl rand -base64 24
+   ```
+
+4. **caddy_auth_admin_secret** - это пароль для входа в Caddy Authentication портал. Сгенерируйте:
+   ```bash
+   openssl rand -base64 24
+   ```
+
+Сохраните файл (Ctrl+O, Enter, Ctrl+X в nano).
+
+### Шаг 7: Развертывание панели
+
+Теперь можно развернуть панель:
+
+```bash
+ansible-playbook -i inventory.ini panel.yml --limit panel-usa
+```
+
+Это займет 10-15 минут. Плейбук установит все необходимое: Docker, PostgreSQL, Redis, RemnaWave Backend, Caddy и настроит безопасность.
+
+Если все прошло успешно, вы увидите в конце сообщение с URL панели и учетными данными для Caddy Authentication.
+
+### Шаг 8: Первый вход в панель
+
+1. Откройте в браузере: `https://panel-usa.example.com`
+
+2. Вас перенаправит на страницу Caddy Authentication. Введите:
+   - Пользователь: `admin` (или тот, что указали в `caddy_auth_admin_user`)
+   - Email: `admin@example.com` (или тот, что указали в `caddy_auth_admin_email`)
+   - Пароль: тот, что сгенерировали для `caddy_auth_admin_secret`
+
+3. После входа вы попадете в RemnaWave панель. Зарегистрируйте первого пользователя - он станет администратором.
+
+### Шаг 9: Добавление ноды в панели
+
+1. В панели RemnaWave перейдите в раздел "Nodes" (Ноды).
+
+2. Нажмите "Add Node" (Добавить ноду).
+
+3. Заполните:
+   - **Name**: `usa` (или любое другое имя)
+   - **IP**: `192.0.2.1` (IP вашей ноды)
+   - **Port**: `2222` (или тот, что указали в `app_port`)
+
+4. Сохраните. Панель покажет **SECRET_KEY** - скопируйте его, он понадобится дальше.
+
+### Шаг 10: Настройка host_vars для ноды
+
+Создайте файл `host_vars/usa.yml`:
+
+```bash
+nano host_vars/usa.yml
+```
+
+Вставьте:
+
+```yaml
+---
+SECRET_KEY: "СКОПИРОВАННЫЙ_SECRET_KEY_ИЗ_ПАНЕЛИ"
+```
+
+Сохраните файл.
+
+### Шаг 11: Создание Caddyfile для ноды
+
+Создайте файл `templates/caddyfiles/usa.j2`:
+
+```bash
+nano templates/caddyfiles/usa.j2
+```
+
+Вставьте:
+
+```caddyfile
+https://cdn-usa.example.com:843 {
+    root * /srv/games-site
+    file_server
+}
+```
+
+Замените `cdn-usa.example.com` на ваш реальный домен (который вы добавили в DNS на шаге 3).
+
+Сохраните файл.
+
+
+### Шаг 12: Развертывание ноды
+
+Теперь разверните ноду:
+
+```bash
+ansible-playbook -i inventory.ini nodes.yml --limit usa
+```
+
+Это также займет 10-15 минут. Плейбук установит RemnaNode, Caddy, Consul Agent, Node Exporter и все необходимое.
+
+### Шаг 13: Развертывание мониторинга
+
+Разверните мониторинг на панели:
+
+```bash
+ansible-playbook -i inventory.ini monitoring.yml --limit panel-usa
+```
+
+Это установит Prometheus и Grafana.
+
+### Шаг 14: Обновление inventory.ini
+
+Теперь, когда SSH ключи настроены, уберите пароли из `inventory.ini`:
+
+```ini
+[nodes]
+usa ansible_host=192.0.2.1 ansible_user=root
+
+[panel]
+panel-usa ansible_host=192.0.2.100 ansible_user=root
+
+[nodes:vars]
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+```
+
+Уберите `ansible_ssh_pass=...` из обеих строк.
+
+### Шаг 15: Проверка работы
+
+1. **Панель**: Откройте `https://panel-usa.example.com` - должна открываться панель RemnaWave.
+
+3. **Мониторинг**: Откройте `https://monitoring-usa.example.com` - должна открываться Grafana.
+
+4. **Проверка ноды в панели**: В панели RemnaWave в разделе "Nodes" нода `usa` должна быть онлайн (зеленый статус).
+
+### Готово!
+
+Теперь у вас работает:
+- ✅ Панель управления RemnaWave
+- ✅ Нода usa с RemnaNode
+- ✅ Мониторинг (Prometheus + Grafana)
+
+### Что дальше?
+
+- Добавьте больше нод - просто повторите шаги 9-13 для каждой новой ноды
+- Настройте дашборды Linux node _ fleet overview-1763743007941 и Node Exporter Full-1763743021570 в Grafana - импортируйте дашборды из `templates/`
+
 ## Что устанавливается
 
 ### panel.yml
@@ -211,11 +643,7 @@ ansible-playbook -i inventory.ini monitoring.yml --limit panel
 
 #### Сервисы
 
-- **PostgreSQL 17** - реляционная база данных для хранения всех данных RemnaWave (пользователи, ноды, подписки, статистика и т.д.). Запускается в Docker контейнере.
-
-- **Valkey/Redis** - in-memory хранилище данных для кэширования и сессий. Используется для быстрого доступа к часто используемым данным.
-
-- **RemnaWave Backend** - основной сервис панели управления. Предоставляет REST API для управления пользователями, нодами, подписками. Запускается на порту 3000.
+- **RemnaWave** - основной сервис панели управления. Предоставляет REST API для управления пользователями, нодами, подписками. 
 
 - **Caddy с аутентификацией** - веб-сервер с автоматическим HTTPS и встроенной системой аутентификации:
   - Автоматически получает SSL сертификаты через Let's Encrypt
@@ -242,10 +670,7 @@ ansible-playbook -i inventory.ini monitoring.yml --limit panel
 
 #### Всё из panel.yml плюс:
 
-- **RemnaNode** - Xray прокси сервер, который обрабатывает весь трафик пользователей:
-  - Поддерживает различные протоколы (VLESS, VMESS, Trojan, Shadowsocks и т.д.)
-  - Автоматически получает конфигурацию с панели через API
-  - Работает на порту, указанном в переменной `app_port` (по умолчанию 2222)
+- **RemnaNode** - Xray прокси сервер, который обрабатывает весь трафик пользователей.
 
 - **Caddy (селфстил)** - веб-сервер для раздачи статического контента:
   - Используется для self-hosted страниц подписок
@@ -279,7 +704,6 @@ ansible-playbook -i inventory.ini monitoring.yml --limit panel
   - Собирает метрики со всех нод через Node Exporter
   - Собирает метрики RemnaWave через API с базовой аутентификацией
   - Автоматически обнаруживает ноды через Consul
-  - Хранит метрики в течение 15 дней
   - Доступен на порту 9090
 
 - **Grafana** - система визуализации и дашбордов:
@@ -347,39 +771,9 @@ ansible-playbook -i inventory.ini nodes.yml --list-tasks
 ansible-playbook -i inventory.ini nodes.yml --list-tags
 ```
 
-## Доступные теги
-
-### Общие теги:
-
-- `firewall` - Настройка UFW
-- `security` - Безопасность (Fail2Ban, SSH)
-- `optimization` - Оптимизация системы
-- `docker` - Docker установка
-- `networking` - Сетевые настройки
-
-### nodes.yml теги:
-
-- `remnanode` - Настройка RemnaNode
-- `caddy` - Настройка Caddy
-- `consul` - Consul Agent
-- `monitoring` - Node Exporter
-- `geo-update` - Скрипты обновления GEO
-
-### panel.yml теги:
-
-- `remnawave` - RemnaWave панель
-- `consul` - Consul Server
-- `panel-prep` - Вся подготовка панели
-
-### monitoring.yml теги:
-
-- `prometheus` - Prometheus
-- `grafana` - Grafana
-- `verification` - Проверки
-
 ## Переменные
 
-### group_vars/nodes.yml (общие для всех)
+### group_vars/nodes.yml (общие для всей группы nodes)
 
 ```yaml
 system_user: "admin"                    # Пользователь на серверах
@@ -469,18 +863,6 @@ ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
 cat ~/.ssh/id_rsa.pub  # Добавить в group_vars/nodes.yml
 ```
 
-### После развертывания
-
-```bash
-# Проверить firewall
-ssh root@YOUR_IP "ufw status verbose"
-
-# Проверить Fail2Ban
-ssh root@YOUR_IP "fail2ban-client status sshd"
-
-# Проверить Docker контейнеры
-ssh root@YOUR_IP "docker ps"
-```
 
 ## Мониторинг
 
@@ -504,32 +886,6 @@ ssh root@YOUR_IP "docker ps"
    
    **Примечание:** Дашборды используют переменную `${datasource}`, поэтому при импорте вы сможете выбрать нужный Prometheus data source из списка.
 
-## Обновления
-
-### Обновить RemnaNode на всех нодах
-
-```bash
-ansible-playbook -i inventory.ini nodes.yml --tags remnanode
-```
-
-### Обновить Caddy конфигурацию
-
-```bash
-# Отредактировать templates/caddyfiles/node1.j2
-ansible-playbook -i inventory.ini nodes.yml --limit node1 --tags caddy
-```
-
-### Обновить панель
-
-```bash
-ansible-playbook -i inventory.ini panel.yml --limit panel --tags remnawave
-```
-
-### Обновить GEO файлы вручную
-
-```bash
-ssh root@YOUR_NODE_IP "/opt/remnanode/update-geo-files.sh"
-```
 
 ## Автоматические задачи
 
@@ -539,10 +895,8 @@ ssh root@YOUR_NODE_IP "/opt/remnanode/update-geo-files.sh"
 |--------|-----------|----------|
 | Обновление GEO файлов | Воскресенье 3:00 МСК | Обновление geosite, geoip, zapret.dat |
 | UFW Blacklist | Ежедневно 3:00 | Блокировка сетей сканеров |
-| WARP restart | Ежедневно 2:00 МСК | Перезапуск WARP интерфейса |
 | Logrotate | Ежедневно | Ротация всех логов |
 | Security updates | Автоматически | Обновления безопасности |
-
 
 ## Примеры Caddyfile
 
@@ -578,74 +932,10 @@ https://cdn-2.example.com:843 {
 }
 ```
 
-## Проверка работы
-
-### После развертывания панели
-
-```bash
-ssh root@PANEL_IP
-
-# Проверить контейнеры
-docker ps
-# Должны быть: remnawave, remnawave-db, remnawave-redis, caddy-panel, consul-server
-
-# Проверить здоровье
-curl http://localhost:3000/api/health
-# Должен вернуть: OK
-
-# Проверить Consul
-curl http://localhost:8500/v1/status/leader
-```
-
-### После развертывания нод
-
-```bash
-ssh root@NODE_IP
-
-# Проверить контейнеры
-docker ps
-# Должны быть: remnanode, caddy, consul-agent, node_exporter
-
-# Проверить логи RemnaNode
-docker logs remnanode --tail 50
-
-# Проверить подключение к Consul
-curl http://{{ consul_server_ip }}:8500/v1/catalog/services
-```
-
-### После развертывания мониторинга
-
-```bash
-ssh root@PANEL_IP
-
-# Проверить Prometheus
-curl http://localhost:9090/-/healthy
-# Должен вернуть: Prometheus is Healthy.
-
-# Проверить targets
-curl http://localhost:9090/api/v1/targets
-
-# Проверить Grafana
-curl http://localhost:3302/api/health
-```
 
 ## Логи
 
-Все логи автоматически ротируются:
-
-```bash
-# Посмотреть логи RemnaNode
-ssh root@NODE_IP "tail -f /var/log/remnanode/*.log"
-
-# Docker логи
-ssh root@NODE_IP "docker logs -f remnanode"
-
-# System logs
-ssh root@NODE_IP "journalctl -f"
-
-# Fail2Ban
-ssh root@NODE_IP "journalctl -u fail2ban -f"
-```
+Все логи автоматически ротируются.
 
 ## FAQ
 
@@ -680,4 +970,3 @@ MIT License - используйте как хотите.
 ---
 
 **Сделано с ❤️ для RemnaWave Community**
-
