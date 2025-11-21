@@ -1,0 +1,46 @@
+# ============================================================================
+# Prometheus Configuration для RemnaWave мониторинга
+# ============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+
+scrape_configs:
+  # Мониторинг самого сервера панели
+  - job_name: 'panel_node'
+    static_configs:
+      - targets: ['127.0.0.1:9100']
+
+  # Динамическое обнаружение нод через Consul
+  - job_name: 'node-exporter'
+    consul_sd_configs:
+      - server: '127.0.0.1:8500'
+        services: ['node-exporter']
+        datacenter: 'remnawave'
+        scheme: 'http'
+        refresh_interval: 30s
+
+    relabel_configs:
+      # Использовать имя ноды из Consul service ID
+      - source_labels: [__meta_consul_service_id]
+        regex: 'node-exporter-(.*)'
+        target_label: instance
+        replacement: '${1}'
+      # Использовать имя ноды из Consul как hostname
+      - source_labels: [__meta_consul_node]
+        target_label: hostname
+      # Использовать адрес и порт из Consul
+      - source_labels: [__meta_consul_service_address, __meta_consul_service_port]
+        separator: ':'
+        target_label: __address__
+        replacement: '${1}:${2}'
+
+  # Метрики RemnaWave панели
+  - job_name: 'remnawave_panel'
+    metrics_path: '/metrics'
+    basic_auth:
+      username: '{{ prometheus_remnawave_username }}'
+      password: '{{ prometheus_remnawave_password }}'
+    static_configs:
+      - targets: ['127.0.0.1:3001']

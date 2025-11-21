@@ -1,0 +1,173 @@
+# ============================================================================
+# Logrotate configuration for all system and application logs
+# ============================================================================
+# Автоматическая ротация всех логов для предотвращения переполнения диска
+# ============================================================================
+
+# -------- RemnaNode logs --------
+/var/log/remnanode/*.log {
+    daily
+    rotate 14
+    size 50M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    dateext
+    dateformat -%Y%m%d
+}
+
+# -------- Docker контейнеры --------
+/var/lib/docker/containers/*/*.log {
+    daily
+    rotate 7
+    size 100M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    dateext
+    dateformat -%Y%m%d
+    # Важно: не удаляем сразу старые, Docker может писать
+    maxage 30
+}
+
+# -------- System logs --------
+/var/log/syslog
+/var/log/messages
+/var/log/kern.log
+/var/log/daemon.log
+{
+    daily
+    rotate 14
+    size 100M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    sharedscripts
+    postrotate
+        /usr/lib/rsyslog/rsyslog-rotate
+    endscript
+}
+
+# -------- Auth logs --------
+/var/log/auth.log
+{
+    daily
+    rotate 30
+    size 50M
+    missingok
+    notifempty
+    compress
+    delaycompress
+}
+
+# -------- Fail2Ban logs --------
+/var/log/fail2ban.log {
+    weekly
+    rotate 4
+    size 20M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    postrotate
+        /usr/bin/fail2ban-client flushlogs >/dev/null 2>&1 || true
+    endscript
+}
+
+# -------- UFW logs --------
+/var/log/ufw.log
+/var/log/ufw_blacklist.log
+{
+    weekly
+    rotate 4
+    size 50M
+    missingok
+    notifempty
+    compress
+    delaycompress
+}
+
+# -------- PostgreSQL logs (если есть) --------
+/var/log/postgresql/*.log
+/var/lib/remnawave/postgresql/data/log/*.log
+{
+    daily
+    rotate 7
+    size 100M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+}
+
+# -------- Redis logs (если есть) --------
+/var/log/redis/*.log {
+    weekly
+    rotate 4
+    size 20M
+    missingok
+    notifempty
+    compress
+    delaycompress
+}
+
+# -------- Nginx/Apache logs (если установлены) --------
+/var/log/nginx/*.log
+/var/log/apache2/*.log
+{
+    daily
+    rotate 14
+    size 50M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    sharedscripts
+    postrotate
+        [ -f /var/run/nginx.pid ] && /usr/sbin/nginx -s reopen > /dev/null 2>&1 || true
+        [ -f /var/run/apache2/apache2.pid ] && /etc/init.d/apache2 reload > /dev/null 2>&1 || true
+    endscript
+}
+
+# -------- Все остальные логи приложений --------
+/var/log/*.log {
+    daily
+    rotate 7
+    size 50M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+}
+
+# -------- Вложенные директории логов --------
+/var/log/*/*.log {
+    daily
+    rotate 7
+    size 50M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+}
+
+# -------- Journal logs cleanup --------
+# Systemd journal также нужно ротировать
+# Это делается через journalctl, но добавим правило
+/var/log/journal/*/*.journal {
+    weekly
+    rotate 2
+    size 500M
+    missingok
+    notifempty
+    compress
+    delaycompress
+}

@@ -1,0 +1,40 @@
+---
+# ============================================================================
+# Пример файла group_vars/nodes.yml
+# ============================================================================
+# Скопируйте как group_vars/nodes.yml и замените значения
+# ============================================================================
+
+# Имя пользователя для создания на серверах
+system_user: "admin"
+
+# Пароль для пользователя
+system_user_password: "CHANGE_ME_SECURE_PASSWORD"
+
+# Порт приложения RemnaNode
+app_port: 2222
+
+# IP адрес сервера мониторинга (обычно IP панели)
+monitoring_ip: "192.0.2.100"
+
+# IP адрес Consul сервера (обычно IP панели)
+consul_server_ip: "192.0.2.100"
+
+# Имя хоста панели из inventory.ini
+panel_hostname: "panel"
+
+# SSH публичный ключ для доступа к серверам
+# Получить: cat ~/.ssh/id_rsa.pub
+ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQD... your-email@example.com"
+
+# Cloudflare API токен для автоматического получения SSL сертификатов
+# Получить: https://dash.cloudflare.com/profile/api-tokens
+# Права: Zone:DNS:Edit, Zone:Zone:Read для всех зон
+cloudflare_api_token: "your_cloudflare_api_token_here"
+
+# Prometheus Basic Auth для метрик панели
+# Используется в panel.yml и monitoring.yml
+prometheus_remnawave_username: "admin"
+# SHA-512 hash пароля. Генерация: echo -n 'your_password' | sha512sum
+prometheus_remnawave_password: "CHANGE_ME_SHA512_HASH_OF_YOUR_PASSWORD"
+

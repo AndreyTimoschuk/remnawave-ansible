@@ -1,0 +1,14 @@
+/var/log/remnanode/*.log {
+    daily
+    rotate 14
+    size 50M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    dateext
+    dateformat -%Y%m%d
+}
+
+

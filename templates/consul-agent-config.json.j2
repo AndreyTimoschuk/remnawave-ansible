@@ -1,0 +1,12 @@
+{
+  "datacenter": "remnawave",
+  "data_dir": "/consul/data",
+  "node_name": "{{ inventory_hostname }}",
+  "server": false,
+  "retry_join": ["{{ consul_server_ip }}"],
+  "ports": {
+    "serf_wan": -1
+  }{% if consul_encrypt_key is defined and consul_encrypt_key | length > 0 %},
+  "encrypt": "{{ consul_encrypt_key }}"{% endif %}
+}
+

@@ -1,0 +1,1211 @@
+---
+# ============================================================================
+# Плейбук для развертывания RemnaWave панели управления
+# ============================================================================
+# Описание: Устанавливает PostgreSQL, Redis, RemnaWave backend и Caddy
+#           Включает: безопасность, оптимизацию, мониторинг
+# Запуск: ansible-playbook -i inventory.ini panel.yml --limit panel
+# ============================================================================
+
+- name: Настройка RemnaWave панели управления
+  hosts: panel
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    # PostgreSQL настройки (можно переопределить в group_vars или host_vars)
+    postgres_user: "remnawave"
+    postgres_password: "CHANGE_ME_SECURE_PASSWORD"
+    postgres_db: "remnawave"
+    
+    # RemnaWave backend настройки
+    remnawave_domain: "{{ remnawave_panel_domain | default('panel.example.com') }}"
+    
+  tasks:
+    # ============================================================================
+    # БЛОК 1: БАЗОВАЯ БЕЗОПАСНОСТЬ И СЕТЬ
+    # ============================================================================
+    # Настройка файрвола, отключение IPv6, базовая защита от DDoS
+    # ============================================================================
+
+    # -------- UFW Firewall --------
+    - name: Установить UFW (Uncomplicated Firewall)
+      apt:
+        name: ufw
+        state: present
+        update_cache: yes
+      tags:
+        - firewall
+        - security
+        - panel-prep
+
+    - name: Настроить правила UFW для панели
+      ufw:
+        rule: allow
+        port: "{{ item.port }}"
+        proto: "{{ item.proto | default('tcp') }}"
+        src: "{{ item.src | default(omit) }}"
+      loop:
+        - { port: '443', proto: 'tcp' }      # HTTPS для Caddy (панель и Grafana)
+        - { port: '9100', proto: 'tcp', src: '127.0.0.1' }  # Node Exporter (только localhost)
+        - { port: '8500', proto: 'tcp', src: '127.0.0.1' }  # Consul API (только localhost)
+        - { port: 'ssh' }                    # SSH доступ
+      tags:
+        - firewall
+        - security
+        - panel-prep
+
+    - name: Включить UFW
+      ufw:
+        state: enabled
+      tags:
+        - firewall
+        - security
+        - panel-prep
+
+    - name: Настроить UFW rate limiting для защиты SSH от брутфорса
+      ufw:
+        rule: limit
+        port: ssh
+        proto: tcp
+      tags:
+        - firewall
+        - security
+        - ddos-protection
+        - panel-prep
+
+    # -------- Отключение IPv6 --------
+    - name: Настроить SSH для работы только с IPv4
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?AddressFamily'
+        line: 'AddressFamily inet'
+        state: present
+      notify: restart ssh
+      tags:
+        - networking
+        - ipv6
+        - ssh
+        - panel-prep
+
+    - name: Отключить IPv6 для всех сетевых интерфейсов
+      lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^{{ item.regexp }}'
+        line: '{{ item.line }}'
+        state: present
+      loop:
+        - { regexp: '^net.ipv6.conf.all.disable_ipv6', line: 'net.ipv6.conf.all.disable_ipv6 = 1' }
+        - { regexp: '^net.ipv6.conf.default.disable_ipv6', line: 'net.ipv6.conf.default.disable_ipv6 = 1' }
+      tags:
+        - networking
+        - ipv6
+        - panel-prep
+
+    - name: Применить изменения sysctl для IPv6
+      command: sysctl -p
+      changed_when: false
+      tags:
+        - networking
+        - ipv6
+        - panel-prep
+
+    # ============================================================================
+    # БЛОК 2: ОПТИМИЗАЦИЯ СИСТЕМЫ
+    # ============================================================================
+    # Настройка swap, сетевых параметров, оптимизация для работы прокси и панели
+    # ============================================================================
+
+    # -------- Сбор информации о системе --------
+    - name: Собрать факты о системе для расчета параметров оптимизации
+      setup:
+        gather_subset:
+          - hardware
+          - network
+      tags:
+        - optimization
+        - system-info
+        - panel-prep
+
+    # -------- Настройка Swap --------
+    - name: Рассчитать размер swap файла для серверов с RAM < 4GB
+      set_fact:
+        swap_size_mb: "{{ ((ansible_memtotal_mb | int) * 1.5) | int }}"
+      when: ansible_memtotal_mb | int < 4096
+      tags:
+        - swap
+        - optimization
+        - panel-prep
+
+    - name: Рассчитать размер swap файла для серверов с RAM >= 4GB
+      set_fact:
+        swap_size_mb: "{{ ((ansible_memtotal_mb | int) * 0.5) | int }}"
+      when: ansible_memtotal_mb | int >= 4096
+      tags:
+        - swap
+        - optimization
+        - panel-prep
+
+    - name: Ограничить максимальный размер swap до 8GB
+      set_fact:
+        swap_size_mb: "8192"
+      when: swap_size_mb | int > 8192
+      tags:
+        - swap
+        - optimization
+        - panel-prep
+
+    - name: Проверить существование swap файла
+      stat:
+        path: /swapfile
+      register: swap_file_stat
+      tags:
+        - swap
+        - optimization
+        - panel-prep
+
+    - name: Создать swap файл
+      command: fallocate -l {{ swap_size_mb }}M /swapfile
+      when: not swap_file_stat.stat.exists
+      tags:
+        - swap
+        - optimization
+        - panel-prep
+
+    - name: Установить безопасные права доступа на swap файл
+      file:
+        path: /swapfile
+        mode: '0600'
+        owner: root
+        group: root
+      when: not swap_file_stat.stat.exists
+      tags:
+        - swap
+        - optimization
+        - panel-prep
+
+    - name: Форматировать swap файл
+      command: mkswap /swapfile
+      when: not swap_file_stat.stat.exists
+      tags:
+        - swap
+        - optimization
+        - panel-prep
+
+    - name: Активировать swap файл
+      command: swapon /swapfile
+      when: not swap_file_stat.stat.exists
+      tags:
+        - swap
+        - optimization
+        - panel-prep
+
+    - name: Добавить swap в /etc/fstab для автозагрузки при перезагрузке
+      lineinfile:
+        path: /etc/fstab
+        line: '/swapfile none swap sw 0 0'
+        regexp: '^/swapfile'
+        state: present
+      tags:
+        - swap
+        - optimization
+        - panel-prep
+
+    - name: Настроить swappiness для оптимизации использования swap
+      sysctl:
+        name: vm.swappiness
+        value: '10'
+        state: present
+        sysctl_set: yes
+        reload: yes
+      tags:
+        - swap
+        - optimization
+        - panel-prep
+
+    - name: Настроить vfs_cache_pressure для оптимизации кэша файловой системы
+      sysctl:
+        name: vm.vfs_cache_pressure
+        value: '250'
+        state: present
+        sysctl_set: yes
+        reload: yes
+      tags:
+        - swap
+        - optimization
+        - panel-prep
+
+    # -------- Оптимизация сетевых параметров --------
+    - name: Оптимизировать sysctl параметры для панели и прокси
+      lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^{{ item.regexp }}'
+        line: '{{ item.line }}'
+        state: present
+      loop:
+        # Файловая система
+        - { regexp: 'fs.file-max', line: 'fs.file-max = 67108864' }
+
+        # Ядро сети / очереди
+        - { regexp: 'net.core.default_qdisc',      line: 'net.core.default_qdisc = fq' }
+        - { regexp: 'net.core.netdev_max_backlog', line: 'net.core.netdev_max_backlog = 32768' }
+        - { regexp: 'net.core.optmem_max',         line: 'net.core.optmem_max = 262144' }
+        - { regexp: 'net.core.somaxconn',          line: 'net.core.somaxconn = 4096' }
+
+        # TCP буферы и алгоритм перегрузки
+        - { regexp: 'net.ipv4.tcp_rmem',           line: 'net.ipv4.tcp_rmem = 4096 131072 6291456' }
+        - { regexp: 'net.ipv4.tcp_wmem',           line: 'net.ipv4.tcp_wmem = 4096 65536 6291456' }
+        - { regexp: 'net.ipv4.tcp_congestion_control', line: 'net.ipv4.tcp_congestion_control = bbr' }
+
+        # Handshake и устойчивость соединений
+        - { regexp: 'net.ipv4.tcp_fin_timeout',    line: 'net.ipv4.tcp_fin_timeout = 30' }
+        - { regexp: 'net.ipv4.tcp_syn_retries',    line: 'net.ipv4.tcp_syn_retries = 5' }
+        - { regexp: 'net.ipv4.tcp_synack_retries', line: 'net.ipv4.tcp_synack_retries = 4' }
+        - { regexp: 'net.ipv4.tcp_retries2',       line: 'net.ipv4.tcp_retries2 = 12' }
+
+        # Полезные переключатели
+        - { regexp: 'net.ipv4.tcp_mtu_probing',    line: 'net.ipv4.tcp_mtu_probing = 1' }
+        - { regexp: 'net.ipv4.tcp_sack',           line: 'net.ipv4.tcp_sack = 1' }
+        - { regexp: 'net.ipv4.tcp_dsack',          line: 'net.ipv4.tcp_dsack = 1' }
+        - { regexp: 'net.ipv4.tcp_slow_start_after_idle', line: 'net.ipv4.tcp_slow_start_after_idle = 0' }
+        - { regexp: 'net.ipv4.tcp_window_scaling', line: 'net.ipv4.tcp_window_scaling = 1' }
+
+        # ECN с откатом
+        - { regexp: 'net.ipv4.tcp_ecn',            line: 'net.ipv4.tcp_ecn = 1' }
+        - { regexp: 'net.ipv4.tcp_ecn_fallback',   line: 'net.ipv4.tcp_ecn_fallback = 1' }
+
+        # TIME-WAIT / orphans
+        - { regexp: 'net.ipv4.tcp_max_tw_buckets', line: 'net.ipv4.tcp_max_tw_buckets = 600000' }
+        - { regexp: 'net.ipv4.tcp_max_orphans',    line: 'net.ipv4.tcp_max_orphans = 262144' }
+
+        # Диапазон портов
+        - { regexp: 'net.ipv4.ip_local_port_range', line: 'net.ipv4.ip_local_port_range = 1024 65535' }
+
+        # Conntrack
+        - { regexp: 'net.netfilter.nf_conntrack_max', line: 'net.netfilter.nf_conntrack_max = 262144' }
+        - { regexp: 'net.netfilter.nf_conntrack_tcp_timeout_established', line: 'net.netfilter.nf_conntrack_tcp_timeout_established = 3600' }
+        - { regexp: 'net.netfilter.nf_conntrack_tcp_timeout_time_wait',   line: 'net.netfilter.nf_conntrack_tcp_timeout_time_wait = 120' }
+        - { regexp: 'net.netfilter.nf_conntrack_tcp_timeout_close_wait',  line: 'net.netfilter.nf_conntrack_tcp_timeout_close_wait = 60' }
+
+        # Защита от спуфинга
+        - { regexp: 'net.ipv4.conf.all.rp_filter',     line: 'net.ipv4.conf.all.rp_filter = 2' }
+        - { regexp: 'net.ipv4.conf.default.rp_filter', line: 'net.ipv4.conf.default.rp_filter = 2' }
+
+        # ICMP и редиректы
+        - { regexp: 'net.ipv4.icmp_echo_ignore_broadcasts',       line: 'net.ipv4.icmp_echo_ignore_broadcasts = 1' }
+        - { regexp: 'net.ipv4.icmp_ignore_bogus_error_responses', line: 'net.ipv4.icmp_ignore_bogus_error_responses = 1' }
+        - { regexp: 'net.ipv4.icmp_echo_ignore_all',              line: 'net.ipv4.icmp_echo_ignore_all = 0' }
+        - { regexp: 'net.ipv4.conf.all.send_redirects',           line: 'net.ipv4.conf.all.send_redirects = 0' }
+        - { regexp: 'net.ipv4.conf.default.send_redirects',       line: 'net.ipv4.conf.default.send_redirects = 0' }
+        - { regexp: 'net.ipv4.conf.all.accept_redirects',         line: 'net.ipv4.conf.all.accept_redirects = 0' }
+        - { regexp: 'net.ipv4.conf.default.accept_redirects',     line: 'net.ipv4.conf.default.accept_redirects = 0' }
+        - { regexp: 'net.ipv4.conf.all.secure_redirects',         line: 'net.ipv4.conf.all.secure_redirects = 0' }
+        - { regexp: 'net.ipv4.conf.default.secure_redirects',     line: 'net.ipv4.conf.default.secure_redirects = 0' }
+        - { regexp: 'net.ipv4.conf.all.log_martians',             line: 'net.ipv4.conf.all.log_martians = 1' }
+        - { regexp: 'net.ipv4.conf.default.log_martians',         line: 'net.ipv4.conf.default.log_martians = 1' }
+
+        # Виртуальная память
+        - { regexp: 'vm.min_free_kbytes', line: 'vm.min_free_kbytes = 65536' }
+        - { regexp: 'vm.swappiness',      line: 'vm.swappiness = 10' }
+        - { regexp: 'vm.dirty_ratio',     line: 'vm.dirty_ratio = 20' }
+        - { regexp: 'vm.overcommit_memory', line: 'vm.overcommit_memory = 2' }
+        - { regexp: 'vm.overcommit_ratio',  line: 'vm.overcommit_ratio = 100' }
+
+        # ARP/NEIGH
+        - { regexp: 'net.ipv4.neigh.default.gc_thresh1', line: 'net.ipv4.neigh.default.gc_thresh1 = 512' }
+        - { regexp: 'net.ipv4.neigh.default.gc_thresh2', line: 'net.ipv4.neigh.default.gc_thresh2 = 2048' }
+        - { regexp: 'net.ipv4.neigh.default.gc_thresh3', line: 'net.ipv4.neigh.default.gc_thresh3 = 16384' }
+        - { regexp: 'net.ipv4.neigh.default.gc_stale_time', line: 'net.ipv4.neigh.default.gc_stale_time = 60' }
+        - { regexp: 'net.ipv4.conf.default.arp_announce', line: 'net.ipv4.conf.default.arp_announce = 2' }
+        - { regexp: 'net.ipv4.conf.lo.arp_announce',      line: 'net.ipv4.conf.lo.arp_announce = 2' }
+        - { regexp: 'net.ipv4.conf.all.arp_announce',     line: 'net.ipv4.conf.all.arp_announce = 2' }
+
+        # Разное
+        - { regexp: 'kernel.panic', line: 'kernel.panic = 1' }
+        - { regexp: 'net.ipv4.tcp_rfc1337', line: 'net.ipv4.tcp_rfc1337 = 1' }
+
+        # Защита от DDoS
+        - { regexp: 'net.ipv4.tcp_syncookies', line: 'net.ipv4.tcp_syncookies = 1' }
+        - { regexp: 'net.ipv4.tcp_max_syn_backlog', line: 'net.ipv4.tcp_max_syn_backlog = 4096' }
+        - { regexp: 'net.ipv4.tcp_synack_retries', line: 'net.ipv4.tcp_synack_retries = 2' }
+        - { regexp: 'net.ipv4.icmp_ratelimit', line: 'net.ipv4.icmp_ratelimit = 100' }
+        - { regexp: 'net.ipv4.conf.all.accept_source_route', line: 'net.ipv4.conf.all.accept_source_route = 0' }
+        - { regexp: 'net.ipv4.conf.default.accept_source_route', line: 'net.ipv4.conf.default.accept_source_route = 0' }
+      tags:
+        - networking
+        - optimization
+        - ddos-protection
+        - panel-prep
+
+    - name: Удалить рискованные/нежелательные sysctl переопределения
+      lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^{{ item }}'
+        state: absent
+      loop:
+        - 'net.ipv4.tcp_adv_win_scale'
+        - 'net.ipv4.tcp_tw_reuse'
+        - 'net.ipv4.tcp_mem'
+        - 'net.ipv4.udp_mem'
+        - 'vm.vfs_cache_pressure'
+      tags:
+        - networking
+        - optimization
+        - panel-prep
+
+    - name: Применить все сетевые оптимизации
+      command: sysctl -p
+      changed_when: false
+      tags:
+        - networking
+        - optimization
+        - panel-prep
+
+    - name: Проверить и загрузить поддержку BBR (TCP Congestion Control)
+      command: modprobe tcp_bbr
+      changed_when: false
+      failed_when: false
+      tags:
+        - networking
+        - optimization
+        - panel-prep
+
+    - name: Загрузить модуль nf_conntrack для отслеживания соединений
+      modprobe:
+        name: nf_conntrack
+        state: present
+      tags:
+        - networking
+        - optimization
+        - panel-prep
+
+    - name: Настроить автозагрузку nf_conntrack при загрузке системы
+      lineinfile:
+        path: /etc/modules-load.d/nf-conntrack.conf
+        line: nf_conntrack
+        create: yes
+        state: present
+      tags:
+        - networking
+        - optimization
+        - panel-prep
+
+    # ============================================================================
+    # БЛОК 3: НАСТРОЙКА СИСТЕМЫ И TIMEZONE
+    # ============================================================================
+
+    - name: Определить timezone по IP адресу хоста через API (ip-api.com)
+      uri:
+        url: "http://ip-api.com/json/{{ ansible_host }}?fields=timezone"
+        method: GET
+        return_content: yes
+        status_code: [200, 404]
+      register: ip_geo_result
+      failed_when: false
+      changed_when: false
+      tags:
+        - timezone
+        - system
+        - panel-prep
+
+    - name: Попробовать альтернативный API (ipapi.co) если основной не сработал
+      uri:
+        url: "https://ipapi.co/{{ ansible_host }}/timezone/"
+        method: GET
+        return_content: yes
+        status_code: [200, 404]
+      register: ip_geo_result_alt
+      failed_when: false
+      changed_when: false
+      when: ip_geo_result.status != 200 or ip_geo_result.json.timezone is not defined
+      tags:
+        - timezone
+        - system
+        - panel-prep
+
+    - name: Извлечь timezone из ответа основного API
+      set_fact:
+        host_timezone: "{{ ip_geo_result.json.timezone }}"
+      when: ip_geo_result.status == 200 and ip_geo_result.json.timezone is defined
+      tags:
+        - timezone
+        - system
+        - panel-prep
+
+    - name: Извлечь timezone из ответа альтернативного API
+      set_fact:
+        host_timezone: "{{ ip_geo_result_alt.content | trim }}"
+      when: 
+        - (ip_geo_result.status != 200 or ip_geo_result.json.timezone is not defined)
+        - ip_geo_result_alt.status == 200
+        - ip_geo_result_alt.content is defined
+        - ip_geo_result_alt.content | trim != ""
+      tags:
+        - timezone
+        - system
+        - panel-prep
+
+    - name: Установить UTC как резервный вариант если API недоступны
+      set_fact:
+        host_timezone: "UTC"
+      when: host_timezone is not defined
+      tags:
+        - timezone
+        - system
+        - panel-prep
+
+    - name: Показать определенный timezone для отладки
+      debug:
+        msg: "Определен timezone для {{ ansible_host }}: {{ host_timezone }}"
+      tags:
+        - timezone
+        - system
+        - panel-prep
+
+    - name: Установить пакет tzdata для работы с timezone
+      apt:
+        name: tzdata
+        state: present
+      tags:
+        - timezone
+        - system
+        - panel-prep
+
+    - name: Установить определенный timezone на системе
+      timezone:
+        name: "{{ host_timezone }}"
+      tags:
+        - timezone
+        - system
+        - panel-prep
+
+    # ============================================================================
+    # БЛОК 4: DOCKER И КОНТЕЙНЕРИЗАЦИЯ
+    # ============================================================================
+
+    - name: Создать директорию для конфигурации Docker
+      file:
+        path: /etc/docker
+        state: directory
+        mode: '0755'
+      tags:
+        - docker
+        - optimization
+        - panel-prep
+
+    - name: Настроить Docker daemon для оптимизации производительности
+      copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "10m",
+              "max-file": "3"
+            },
+            "default-ulimits": {
+              "nofile": {
+                "Name": "nofile",
+                "Hard": 65536,
+                "Soft": 65536
+              }
+            },
+            "storage-driver": "overlay2"
+          }
+        mode: '0644'
+      notify: restart docker
+      tags:
+        - docker
+        - optimization
+        - panel-prep
+
+    - name: Установить зависимости для Docker
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+      tags:
+        - docker
+        - panel-prep
+
+    - name: Добавить официальный Docker GPG ключ
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+      tags:
+        - docker
+        - panel-prep
+
+    - name: Добавить официальный Docker репозиторий
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+      tags:
+        - docker
+        - panel-prep
+
+    - name: Установить Docker и компоненты
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+      tags:
+        - docker
+        - panel-prep
+
+    - name: Запустить и включить автозагрузку Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+      tags:
+        - docker
+        - panel-prep
+
+    - name: Установить git для клонирования репозиториев
+      apt:
+        name: git
+        state: present
+        update_cache: yes
+      tags:
+        - tools
+        - panel-prep
+
+    - name: Добавить пользователя {{ system_user }} в группу docker для работы без sudo
+      user:
+        name: {{ system_user }}
+        groups: docker
+        append: yes
+      tags:
+        - docker
+        - users
+        - panel-prep
+
+    # ============================================================================
+    # БЛОК 5: БАЗОВАЯ НАСТРОЙКА СИСТЕМЫ
+    # ============================================================================
+
+    # -------- Hostname --------
+    - name: Установить hostname системы
+      hostname:
+        name: "{{ inventory_hostname }}"
+      tags:
+        - system
+        - hostname
+        - panel-prep
+
+    - name: Обновить /etc/hosts с правильным hostname
+      lineinfile:
+        path: /etc/hosts
+        regexp: '^127\.0\.1\.1'
+        line: "127.0.1.1 {{ inventory_hostname }}"
+        state: present
+      tags:
+        - system
+        - hostname
+        - panel-prep
+
+    # -------- Пользователи --------
+    - name: Создать пользователя {{ system_user }}
+      user:
+        name: {{ system_user }}
+        shell: /bin/bash
+        create_home: yes
+        state: present
+        password: "{{ system_user_password }}"
+      tags:
+        - users
+        - panel-prep
+
+    - name: Добавить пользователя {{ system_user }} в группу sudo
+      user:
+        name: {{ system_user }}
+        groups: sudo
+        append: yes
+      tags:
+        - users
+        - panel-prep
+
+    - name: Настроить sudo без пароля для пользователя {{ system_user }}
+      lineinfile:
+        path: /etc/sudoers.d/{{ system_user }}
+        line: '{{ system_user }} ALL=(ALL) NOPASSWD:ALL'
+        create: yes
+        mode: '0440'
+        validate: 'visudo -cf %s'
+      tags:
+        - users
+        - security
+        - panel-prep
+
+    # -------- SSH конфигурация --------
+    - name: Создать директорию .ssh для пользователя {{ system_user }}
+      file:
+        path: /home/{{ system_user }}/.ssh
+        state: directory
+        owner: {{ system_user }}
+        group: {{ system_user }}
+        mode: '0700'
+      tags:
+        - ssh
+        - security
+        - panel-prep
+
+    - name: Добавить публичный SSH ключ для пользователя {{ system_user }}
+      authorized_key:
+        user: {{ system_user }}
+        key: "{{ ssh_public_key }}"
+        state: present
+      tags:
+        - ssh
+        - security
+        - panel-prep
+
+    - name: Убедиться что директория .ssh существует для root (резервный доступ)
+      file:
+        path: /root/.ssh
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+      tags:
+        - ssh
+        - security
+        - panel-prep
+
+    - name: Добавить публичный SSH ключ для root (на случай проблем)
+      authorized_key:
+        user: root
+        key: "{{ ssh_public_key }}"
+        state: present
+      tags:
+        - ssh
+        - security
+        - panel-prep
+
+    - name: Настроить SSH для использования только ключей (первый этап)
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PubkeyAuthentication'
+        line: 'PubkeyAuthentication yes'
+        state: present
+      tags:
+        - ssh
+        - security
+        - panel-prep
+
+    - name: Перезапустить SSH для применения настроек ключей
+      systemd:
+        name: ssh
+        state: restarted
+      tags:
+        - ssh
+        - security
+        - panel-prep
+
+    - name: Проверить SSH подключение с ключом перед отключением паролей
+      wait_for_connection:
+        timeout: 30
+      tags:
+        - ssh
+        - security
+        - panel-prep
+
+    - name: Отключить парольную аутентификацию и разрешить root логин только по ключу
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?{{ item.key }}'
+        line: '{{ item.key }} {{ item.value }}'
+        state: present
+      loop:
+        - { key: 'PasswordAuthentication', value: 'no' }
+        - { key: 'PermitRootLogin', value: 'without-password' }
+      notify: restart ssh
+      tags:
+        - ssh
+        - security
+        - panel-prep
+
+    - name: Применить оптимальные настройки безопасности SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?{{ item.key }}'
+        line: '{{ item.key }} {{ item.value }}'
+        state: present
+      loop:
+        - { key: 'MaxAuthTries', value: '6' }
+        - { key: 'MaxSessions', value: '20' }
+        - { key: 'MaxStartups', value: '20:50:200' }
+        - { key: 'LoginGraceTime', value: '60' }
+        - { key: 'ClientAliveInterval', value: '300' }
+        - { key: 'ClientAliveCountMax', value: '2' }
+        - { key: 'X11Forwarding', value: 'no' }
+        - { key: 'AllowTcpForwarding', value: 'yes' }
+        - { key: 'Compression', value: 'no' }
+        - { key: 'UseDNS', value: 'no' }
+        - { key: 'GSSAPIAuthentication', value: 'no' }
+        - { key: 'PermitEmptyPasswords', value: 'no' }
+        - { key: 'Protocol', value: '2' }
+        - { key: 'StrictModes', value: 'yes' }
+        - { key: 'IgnoreRhosts', value: 'yes' }
+        - { key: 'HostbasedAuthentication', value: 'no' }
+        - { key: 'PermitUserEnvironment', value: 'no' }
+        - { key: 'PubkeyAuthentication', value: 'yes' }
+        - { key: 'AuthorizedKeysFile', value: '.ssh/authorized_keys' }
+      notify: restart ssh
+      tags:
+        - ssh
+        - security
+        - panel-prep
+
+    # ============================================================================
+    # БЛОК 6: ДОПОЛНИТЕЛЬНАЯ БЕЗОПАСНОСТЬ
+    # ============================================================================
+
+    # -------- Fail2Ban для защиты от брутфорса --------
+    - name: Установить Fail2Ban для защиты от брутфорс атак
+      apt:
+        name: fail2ban
+        state: present
+      tags:
+        - fail2ban
+        - security
+        - panel-prep
+
+    - name: Создать конфигурацию Fail2Ban для работы с systemd journal
+      copy:
+        dest: /etc/fail2ban/jail.local
+        content: |
+          [DEFAULT]
+          # Блокировка хостов на 24 часа
+          bantime = 86400
+          # Хост блокируется если совершил "maxretry" попыток за "findtime" секунд
+          findtime = 600
+          maxretry = 5
+          # Использовать systemd backend для современных систем
+          backend = systemd
+          # Использовать UFW для блокировки
+          banaction = ufw
+          # Email получателя (опционально, можно настроить)
+          destemail = root@localhost
+          sender = root@localhost
+          # Действие при блокировке
+          action = %(banaction)s[name=%(__name__)s, bantime=%(bantime)s, port=%(port)s, protocol=%(protocol)s]
+
+          [sshd]
+          enabled = true
+          port = ssh
+          filter = sshd
+          logpath = %(sshd_log)s
+          backend = systemd
+          maxretry = 3
+          bantime = 86400
+          findtime = 600
+          # Игнорировать localhost и приватные сети
+          ignoreip = 127.0.0.1/8 ::1 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
+        mode: '0644'
+      notify: restart fail2ban
+      tags:
+        - fail2ban
+        - security
+        - panel-prep
+
+    - name: Запустить и включить автозагрузку Fail2Ban
+      systemd:
+        name: fail2ban
+        state: started
+        enabled: yes
+      tags:
+        - fail2ban
+        - security
+        - panel-prep
+
+    - name: Проверить статус Fail2Ban
+      command: fail2ban-client status
+      register: fail2ban_status
+      changed_when: false
+      failed_when: false
+      tags:
+        - fail2ban
+        - security
+        - panel-prep
+
+    - name: Показать статус Fail2Ban для отладки
+      debug:
+        var: fail2ban_status.stdout_lines
+      when: fail2ban_status.rc == 0
+      tags:
+        - fail2ban
+        - security
+        - panel-prep
+
+    # -------- Автоматические обновления безопасности --------
+    - name: Установить unattended-upgrades для автоматических обновлений безопасности
+      apt:
+        name: unattended-upgrades
+        state: present
+        update_cache: yes
+      tags:
+        - security
+        - updates
+        - panel-prep
+
+    - name: Настроить автоматические обновления безопасности
+      copy:
+        dest: /etc/apt/apt.conf.d/50unattended-upgrades
+        content: |
+          Unattended-Upgrade::Allowed-Origins {
+              "${distro_id}:${distro_codename}-security";
+              "${distro_id}ESMApps:${distro_codename}-apps-security";
+              "${distro_id}ESM:${distro_codename}-infra-security";
+          };
+          Unattended-Upgrade::AutoFixInterruptedDpkg "true";
+          Unattended-Upgrade::MinimalSteps "true";
+          Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+          Unattended-Upgrade::Remove-Unused-Dependencies "true";
+          Unattended-Upgrade::Automatic-Reboot "false";
+          Unattended-Upgrade::Automatic-Reboot-Time "03:00";
+        mode: '0644'
+      tags:
+        - security
+        - updates
+        - panel-prep
+
+    - name: Включить автоматические обновления безопасности
+      copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        content: |
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Download-Upgradeable-Packages "1";
+          APT::Periodic::AutocleanInterval "7";
+          APT::Periodic::Unattended-Upgrade "1";
+        mode: '0644'
+      tags:
+        - security
+        - updates
+        - panel-prep
+
+    # ============================================================================
+    # БЛОК 7: CONSUL SERVER - СЕРВИС ОБНАРУЖЕНИЯ
+    # ============================================================================
+    # Consul Server для автоматического обнаружения нод и интеграции с Prometheus
+    # ============================================================================
+
+    - name: Создать директорию для Consul Server
+      file:
+        path: /opt/consul
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      tags:
+        - consul
+        - monitoring
+        - panel-prep
+
+    - name: Создать директорию для данных Consul Server
+      file:
+        path: /var/lib/remnawave/consul/server/data
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      tags:
+        - consul
+        - monitoring
+        - panel-prep
+
+    - name: Создать docker-compose.yml для Consul Server
+      template:
+        src: consul-server-compose.yml.j2
+        dest: /opt/consul/docker-compose.yml
+        owner: root
+        group: root
+        mode: '0644'
+      tags:
+        - consul
+        - monitoring
+        - panel-prep
+
+    - name: Запустить Consul Server
+      community.docker.docker_compose_v2:
+        project_src: /opt/consul
+        state: present
+      tags:
+        - consul
+        - monitoring
+        - panel-prep
+
+    - name: Открыть порт Consul API для localhost (для Prometheus)
+      ufw:
+        rule: allow
+        port: '8500'
+        proto: 'tcp'
+        src: '127.0.0.1'
+      tags:
+        - consul
+        - firewall
+        - panel-prep
+
+    # ============================================================================
+    # БЛОК 8: LOGROTATE - УПРАВЛЕНИЕ ЛОГАМИ
+    # ============================================================================
+
+    - name: Установить logrotate для управления логами
+      apt:
+        name: logrotate
+        state: present
+        update_cache: yes
+      tags:
+        - logrotate
+        - maintenance
+        - panel-prep
+
+    - name: Создать директории для логов
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - /var/log/remnanode
+        - /var/log/remnawave
+      tags:
+        - logrotate
+        - maintenance
+        - panel-prep
+
+    - name: Установить общую конфигурацию logrotate для всех логов
+      template:
+        src: logrotate-custom.j2
+        dest: /etc/logrotate.d/custom-logs
+        owner: root
+        group: root
+        mode: '0644'
+      tags:
+        - logrotate
+        - maintenance
+        - panel-prep
+
+    - name: Настроить лимиты systemd journald для ограничения размера логов
+      lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#?{{ item.key }}='
+        line: '{{ item.key }}={{ item.value }}'
+        state: present
+      loop:
+        - { key: 'SystemMaxUse', value: '500M' }
+        - { key: 'SystemMaxFileSize', value: '100M' }
+        - { key: 'MaxRetentionSec', value: '1month' }
+        - { key: 'ForwardToSyslog', value: 'no' }
+      notify: restart journald
+      tags:
+        - logrotate
+        - maintenance
+        - panel-prep
+
+    # ============================================================================
+    # БЛОК 9: REMNAWAVE ПАНЕЛЬ - ПОДГОТОВКА
+    # ============================================================================
+    
+    - name: Создать директории для данных RemnaWave
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - /opt/remnawave
+        - /var/lib/remnawave/postgresql/data
+        - /var/lib/remnawave/redis/data
+        - /var/lib/remnawave/caddy/ssl
+      tags:
+        - setup
+        - directories
+        - panel-prep
+
+    # ============================================================================
+    # БЛОК 10: REMNAWAVE ПАНЕЛЬ - КОНФИГУРАЦИЯ
+    # ============================================================================
+
+    - name: Создать .env файл для RemnaWave панели
+      template:
+        src: templates/remnawave-panel.env.j2
+        dest: /opt/remnawave/.env
+        owner: root
+        group: root
+        mode: '0600'
+      tags:
+        - config
+        - env
+        - panel-prep
+
+    - name: Создать docker-compose.yml для RemnaWave панели
+      template:
+        src: templates/remnawave-panel-compose.yml.j2
+        dest: /opt/remnawave/docker-compose.yml
+        owner: root
+        group: root
+        mode: '0644'
+      tags:
+        - config
+        - docker
+        - panel-prep
+
+    # ============================================================================
+    # БЛОК 11: CADDY ДЛЯ ПАНЕЛИ
+    # ============================================================================
+
+    - name: Создать директорию для Caddy панели
+      file:
+        path: /opt/caddy-panel
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      tags:
+        - caddy
+        - setup
+        - panel-prep
+
+    - name: Создать Caddyfile для RemnaWave панели
+      template:
+        src: templates/caddyfiles/panel.j2
+        dest: /opt/caddy-panel/Caddyfile
+        owner: root
+        group: root
+        mode: '0644'
+      tags:
+        - caddy
+        - config
+        - panel-prep
+
+    - name: Создать docker-compose.yml для Caddy панели
+      template:
+        src: templates/caddy-panel-compose.yml.j2
+        dest: /opt/caddy-panel/docker-compose.yml
+        owner: root
+        group: root
+        mode: '0644'
+      tags:
+        - caddy
+        - config
+        - panel-prep
+
+    # ============================================================================
+    # БЛОК 12: ЗАПУСК СЕРВИСОВ ПАНЕЛИ
+    # ============================================================================
+
+    - name: Запустить RemnaWave панель (PostgreSQL, Redis, Backend)
+      community.docker.docker_compose_v2:
+        project_src: /opt/remnawave
+        state: present
+      tags:
+        - services
+        - remnawave
+        - panel-prep
+
+    - name: Остановить Caddy панели перед обновлением
+      command: docker compose down
+      args:
+        chdir: /opt/caddy-panel
+      ignore_errors: yes
+      tags:
+        - services
+        - caddy
+        - panel-prep
+
+    - name: Запустить Caddy для панели
+      command: docker compose up -d
+      args:
+        chdir: /opt/caddy-panel
+      tags:
+        - services
+        - caddy
+        - panel-prep
+
+    # ============================================================================
+    # БЛОК 13: ПРОВЕРКА РАБОТОСПОСОБНОСТИ
+    # ============================================================================
+
+    - name: Дождаться запуска RemnaWave панели
+      wait_for:
+        host: 127.0.0.1
+        port: 3000
+        delay: 5
+        timeout: 60
+        state: started
+      tags:
+        - verification
+        - panel-prep
+
+    - name: Показать информацию о запущенных контейнерах
+      command: docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+      register: docker_ps_output
+      changed_when: false
+      tags:
+        - verification
+        - panel-prep
+
+    - name: Вывести статус контейнеров
+      debug:
+        var: docker_ps_output.stdout_lines
+      tags:
+        - verification
+        - panel-prep
+
+    - name: Показать инструкции по первому входу
+      debug:
+        msg:
+          - "============================================"
+          - "RemnaWave панель успешно развернута!"
+          - "============================================"
+          - ""
+          - "Доступ к панели: https://{{ remnawave_panel_domain | default('panel.example.com') }}"
+          - ""
+          - "СЛЕДУЮЩИЕ ШАГИ:"
+          - "1. Откройте панель в браузере"
+          - "2. Зарегистрируйте первого пользователя (станет администратором)"
+          - "3. Добавьте ноды и получите SECRET_KEY для каждой"
+          - "4. Обновите host_vars/nodeX.yml с полученными SECRET_KEY"
+          - "5. Запустите развертывание нод: ansible-playbook -i inventory.ini nodes.yml"
+          - ""
+          - "============================================"
+      tags:
+        - verification
+        - panel-prep
+
+  # ============================================================================
+  # HANDLERS - ОБРАБОТЧИКИ СОБЫТИЙ
+  # ============================================================================
+
+  handlers:
+    - name: restart ssh
+      systemd:
+        name: ssh
+        state: restarted
+
+    - name: restart docker
+      systemd:
+        name: docker
+        state: restarted
+
+    - name: restart fail2ban
+      systemd:
+        name: fail2ban
+        state: restarted
+
+    - name: restart journald
+      systemd:
+        name: systemd-journald
+        state: restarted

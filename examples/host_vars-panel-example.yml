@@ -1,0 +1,28 @@
+---
+# ============================================================================
+# Пример файла host_vars для панели управления
+# ============================================================================
+# Скопируйте как host_vars/panel.yml
+# ============================================================================
+
+# SECRET_KEY для панельной ноды (если панель тоже работает как нода)
+# Получить из панели после добавления ноды "panel"
+SECRET_KEY: "eyJub2RlQ2VydFBlbSI6Ii0tLS0tQkVHSU4gQ0VSVElGSUNBVEUtLS0tLS..."
+
+# Основной домен RemnaWave панели
+remnawave_panel_domain: "panel.yourdomain.com"
+
+# Домен для Grafana мониторинга
+monitoring_domain: "monitoring.yourdomain.com"
+
+# Порт Grafana (по умолчанию 3302)
+grafana_port: 3302
+
+# Cloudflare API токен (если отличается от основного)
+caddy_cloudflare_token_alt: "your_cloudflare_token_here"
+
+# PostgreSQL настройки (опционально переопределить)
+# postgres_user: "remnawave"
+# postgres_password: "secure_password_here"
+# postgres_db: "remnawave"
+

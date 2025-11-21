@@ -1,0 +1,28 @@
+# ============================================================================
+# Caddyfile для node2
+# ============================================================================
+# Пример с кастомным портом (8443) и настройками HTTP/3
+# ============================================================================
+
+{
+    servers {
+        protocols h1 h2 h3
+        timeouts {
+            read_body 60s
+            read_header 20s
+            idle 2m
+        }
+    }
+}
+
+https://cdn-node2.example.com:843 {
+    tls {
+        dns cloudflare {
+            api_token {{ cloudflare_api_token }}
+        }
+    }
+
+    root * /srv/static-site
+    file_server
+}
+

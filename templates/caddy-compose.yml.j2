@@ -1,0 +1,11 @@
+services:
+  caddy:
+    image: remnawave/caddy-with-auth:latest
+    container_name: 'caddy'
+    hostname: caddy
+    restart: always
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./templates/:/srv/
+      - /var/lib/remnawave/caddy/certificates:/data/caddy/certificates

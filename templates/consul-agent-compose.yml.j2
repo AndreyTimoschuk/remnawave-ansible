@@ -1,0 +1,11 @@
+services:
+  consul-agent:
+    image: consul:1.15.4
+    container_name: consul-agent
+    command: "consul agent -retry-join={{ consul_server_ip }} -node={{ inventory_hostname }} -bind={{ ansible_host }} -advertise={{ ansible_host }} -client=0.0.0.0 -data-dir=/consul/data -datacenter=remnawave -config-dir=/consul/services -serf-wan-port=-1{% if consul_encrypt_key is defined and consul_encrypt_key | length > 0 %} -encrypt={{ consul_encrypt_key }}{% endif %}"
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /var/lib/remnawave/consul/agent/data:/consul/data
+      - ./services:/consul/services
+

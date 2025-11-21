@@ -1,0 +1,143 @@
+---
+# ============================================================================
+# Плейбук для развертывания системы мониторинга
+# ============================================================================
+# Описание: Устанавливает Prometheus, Grafana, Node Exporter и Xray Checker
+# Запуск: ansible-playbook -i inventory.ini monitoring.yml --limit panel
+# ============================================================================
+
+- name: Настройка системы мониторинга RemnaWave
+  hosts: panel
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    # Grafana настройки
+    grafana_port: 3302
+    
+  tasks:
+    # ============================================================================
+    # БЛОК 1: ПОДГОТОВКА СИСТЕМЫ
+    # ============================================================================
+    
+    - name: Создать директории для мониторинга
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - /opt/monitoring
+        - /var/lib/monitoring/prometheus/data
+        - /var/lib/monitoring/grafana/data
+        - /var/log/prometheus
+        - /var/log/grafana
+      tags:
+        - setup
+        - directories
+
+    - name: Установить logrotate для управления логами мониторинга
+      apt:
+        name: logrotate
+        state: present
+        update_cache: yes
+      tags:
+        - logrotate
+        - maintenance
+
+    - name: Установить конфигурацию logrotate для логов мониторинга
+      template:
+        src: logrotate-custom.j2
+        dest: /etc/logrotate.d/monitoring-logs
+        owner: root
+        group: root
+        mode: '0644'
+      tags:
+        - logrotate
+        - maintenance
+
+    # ============================================================================
+    # БЛОК 2: КОНФИГУРАЦИОННЫЕ ФАЙЛЫ
+    # ============================================================================
+
+    - name: Создать конфигурацию Prometheus
+      template:
+        src: templates/prometheus.yml.j2
+        dest: /opt/monitoring/prometheus.yml
+        owner: root
+        group: root
+        mode: '0644'
+      tags:
+        - config
+        - prometheus
+
+    - name: Создать docker-compose.yml для мониторинга
+      template:
+        src: templates/monitoring-compose.yml.j2
+        dest: /opt/monitoring/docker-compose.yml
+        owner: root
+        group: root
+        mode: '0644'
+      tags:
+        - config
+        - docker
+
+    # ============================================================================
+    # БЛОК 3: ЗАПУСК СЕРВИСОВ
+    # ============================================================================
+
+    - name: Запустить систему мониторинга
+      community.docker.docker_compose_v2:
+        project_src: /opt/monitoring
+        state: present
+      tags:
+        - services
+        - monitoring
+
+    # ============================================================================
+    # БЛОК 4: ПРОВЕРКА РАБОТОСПОСОБНОСТИ
+    # ============================================================================
+
+    - name: Дождаться запуска Prometheus
+      wait_for:
+        host: 127.0.0.1
+        port: 9090
+        delay: 5
+        timeout: 60
+        state: started
+      tags:
+        - verification
+
+    - name: Дождаться запуска Grafana
+      wait_for:
+        host: 127.0.0.1
+        port: "{{ grafana_port }}"
+        delay: 5
+        timeout: 60
+        state: started
+      tags:
+        - verification
+
+    - name: Показать информацию о запущенных контейнерах мониторинга
+      command: docker ps --filter "name=prometheus\|grafana\|node_exporter\|xray-checker" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+      register: docker_ps_output
+      changed_when: false
+      tags:
+        - verification
+
+    - name: Вывести статус контейнеров мониторинга
+      debug:
+        var: docker_ps_output.stdout_lines
+      tags:
+        - verification
+
+    - name: Показать URL для доступа к сервисам
+      debug:
+        msg:
+          - "Grafana доступна по адресу: https://monitoring.example.com (или http://{{ ansible_host }}:{{ grafana_port }})"
+          - "Prometheus доступен по адресу: http://{{ ansible_host }}:9090"
+          - "Не забудьте настроить Grafana data source для Prometheus: http://127.0.0.1:9090"
+      tags:
+        - verification
+

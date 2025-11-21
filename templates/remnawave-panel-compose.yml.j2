@@ -1,0 +1,55 @@
+services:
+  # PostgreSQL Database
+  remnawave-db:
+    image: postgres:17
+    container_name: 'remnawave-db'
+    hostname: remnawave-db
+    restart: always
+    network_mode: host
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - TZ=UTC
+    volumes:
+      - /var/lib/remnawave/postgresql/data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 3s
+      timeout: 10s
+      retries: 3
+
+  # RemnaWave Backend
+  remnawave:
+    image: remnawave/backend:latest
+    container_name: 'remnawave'
+    hostname: remnawave
+    restart: always
+    network_mode: host
+    env_file:
+      - .env
+    volumes:
+      - /var/lib/remnawave/caddy/ssl:/data_caddy:ro
+    depends_on:
+      remnawave-db:
+        condition: service_healthy
+      remnawave-redis:
+        condition: service_healthy
+
+  # Redis Cache
+  remnawave-redis:
+    image: valkey/valkey:8.0.2-alpine
+    container_name: remnawave-redis
+    hostname: remnawave-redis
+    restart: always
+    network_mode: host
+    volumes:
+      - /var/lib/remnawave/redis/data:/data
+    healthcheck:
+      test: [ "CMD", "valkey-cli", "ping" ]
+      interval: 3s
+      timeout: 10s
+      retries: 3
+

@@ -1,0 +1,68 @@
+#!/bin/bash
+# Update geo files and restart remnanode container
+# This script runs weekly on Sunday at 3 AM MSK (Moscow time)
+
+set -e
+
+LOG_FILE="/var/log/remnanode/geo-update.log"
+DATE=$(date '+%Y-%m-%d %H:%M:%S')
+
+echo "[$DATE] Starting geo files update" >> $LOG_FILE
+
+# Download updated geosite file
+echo "[$DATE] Downloading geosite_ru.dat..." >> $LOG_FILE
+wget -q -O /opt/remnanode/geosite_ru.dat.tmp https://raw.githubusercontent.com/runetfreedom/russia-v2ray-rules-dat/release/geosite.dat
+
+if [ $? -eq 0 ]; then
+    mv /opt/remnanode/geosite_ru.dat.tmp /opt/remnanode/geosite_ru.dat
+    chmod 644 /opt/remnanode/geosite_ru.dat
+    echo "[$DATE] geosite_ru.dat updated successfully" >> $LOG_FILE
+else
+    echo "[$DATE] ERROR: Failed to download geosite_ru.dat" >> $LOG_FILE
+    rm -f /opt/remnanode/geosite_ru.dat.tmp
+fi
+
+# Download updated geoip file
+echo "[$DATE] Downloading geoip_ru.dat..." >> $LOG_FILE
+wget -q -O /opt/remnanode/geoip_ru.dat.tmp https://raw.githubusercontent.com/runetfreedom/russia-v2ray-rules-dat/release/geoip.dat
+
+if [ $? -eq 0 ]; then
+    mv /opt/remnanode/geoip_ru.dat.tmp /opt/remnanode/geoip_ru.dat
+    chmod 644 /opt/remnanode/geoip_ru.dat
+    echo "[$DATE] geoip_ru.dat updated successfully" >> $LOG_FILE
+else
+    echo "[$DATE] ERROR: Failed to download geoip_ru.dat" >> $LOG_FILE
+    rm -f /opt/remnanode/geoip_ru.dat.tmp
+fi
+
+# Download updated zapret.dat file
+echo "[$DATE] Downloading zapret.dat..." >> $LOG_FILE
+wget -q -O /opt/remnanode/zapret.dat.tmp https://github.com/kutovoys/ru_gov_zapret/releases/latest/download/zapret.dat
+
+if [ $? -eq 0 ]; then
+    mv /opt/remnanode/zapret.dat.tmp /opt/remnanode/zapret.dat
+    chmod 644 /opt/remnanode/zapret.dat
+    echo "[$DATE] zapret.dat updated successfully" >> $LOG_FILE
+else
+    echo "[$DATE] ERROR: Failed to download zapret.dat" >> $LOG_FILE
+    rm -f /opt/remnanode/zapret.dat.tmp
+fi
+
+# Restart remnanode container
+echo "[$DATE] Restarting remnanode container..." >> $LOG_FILE
+cd /opt/remnanode
+
+# Stop container
+docker compose down
+
+# Start container
+docker compose up -d
+
+if [ $? -eq 0 ]; then
+    echo "[$DATE] RemnaNode container restarted successfully" >> $LOG_FILE
+else
+    echo "[$DATE] ERROR: Failed to restart RemnaNode container" >> $LOG_FILE
+fi
+
+echo "[$DATE] Geo files update completed" >> $LOG_FILE
+echo "----------------------------------------" >> $LOG_FILE

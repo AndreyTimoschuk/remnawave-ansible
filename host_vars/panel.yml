@@ -1,0 +1,20 @@
+---
+# ============================================================================
+# Host-specific variables for RemnaWave panel
+# ============================================================================
+
+# SECRET_KEY для панельной ноды (если используется)
+SECRET_KEY: "YOUR_NODE_SECRET_KEY_FROM_REMNAWAVE_PANEL"
+
+# Домен для RemnaWave панели
+remnawave_panel_domain: "panel.example.com"
+
+# Домен для мониторинга Grafana
+monitoring_domain: "monitoring.example.com"
+
+# Порт Grafana (по умолчанию 3302)
+grafana_port: 3302
+
+# Cloudflare API токен (если отличается от основного)
+caddy_cloudflare_token_alt: "YOUR_CLOUDFLARE_API_TOKEN_HERE"
+

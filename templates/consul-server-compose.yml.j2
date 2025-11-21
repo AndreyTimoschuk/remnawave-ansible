@@ -1,0 +1,10 @@
+services:
+  consul-server:
+    image: consul:1.15.4
+    container_name: consul-server
+    command: "consul agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0 -bind={{ consul_server_ip }} -advertise={{ consul_server_ip }} -data-dir=/consul/data -datacenter=remnawave -serf-wan-port=-1{% if consul_encrypt_key is defined and consul_encrypt_key | length > 0 %} -encrypt={{ consul_encrypt_key }}{% endif %}"
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /var/lib/remnawave/consul/server/data:/consul/data
+

@@ -1,0 +1,14 @@
+{
+  "service": {
+    "id": "node-exporter-{{ inventory_hostname }}",
+    "name": "node-exporter",
+    "tags": ["monitoring", "metrics"],
+    "address": "{{ ansible_host }}",
+    "port": 9100,
+    "check": {
+      "http": "http://{{ ansible_host }}:9100/metrics",
+      "interval": "10s",
+      "timeout": "3s"
+    }
+  }
+}

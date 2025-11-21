@@ -1,0 +1,125 @@
+#!/bin/bash
+
+# URL файла с подсетями
+URL="https://raw.githubusercontent.com/C24Be/AS_Network_List/main/blacklists/blacklist.txt"
+# Временный файл для хранения подсетей
+TEMP_FILE="/tmp/blacklist_subnets.txt"
+# Лог-файл для ошибок и диагностики
+LOG_FILE="/var/log/ufw_blacklist.log"
+
+# Функция для отображения процента прогресса
+show_progress() {
+    local current=$1
+    local total=$2
+    local percent=$((current * 100 / total))
+    printf "\rПрогресс: %d%%" "$percent"
+}
+
+# Проверка прав root
+[[ $EUID -ne 0 ]] && { echo "Ошибка: скрипт должен быть запущен от имени root (sudo)" | tee -a "$LOG_FILE"; exit 1; }
+
+# Функция для проверки и установки UFW
+install_ufw() {
+    if ! command -v ufw &> /dev/null; then
+        echo "Установка UFW..." | tee -a "$LOG_FILE"
+        if [[ -f /etc/debian_version ]]; then
+            apt-get update >> "$LOG_FILE" 2>&1 && apt-get install -y ufw >> "$LOG_FILE" 2>&1
+            [[ $? -ne 0 ]] && { echo "Ошибка: не удалось установить UFW" | tee -a "$LOG_FILE"; exit 1; }
+        elif [[ -f /etc/redhat-release ]]; then
+            yum install -y ufw >> "$LOG_FILE" 2>&1
+            [[ $? -ne 0 ]] && { echo "Ошибка: не удалось установить UFW" | tee -a "$LOG_FILE"; exit 1; }
+        else
+            echo "Ошибка: неподдерживаемая система. Установите UFW вручную." | tee -a "$LOG_FILE"
+            exit 1
+        fi
+    else
+        echo "UFW уже установлен" | tee -a "$LOG_FILE"
+    fi
+
+    # Включаем UFW если он не активен
+    if ! ufw status | grep -q "Status: active"; then
+        echo "Включение UFW..." | tee -a "$LOG_FILE"
+        ufw --force enable >> "$LOG_FILE" 2>&1
+    fi
+}
+
+# Функция для очистки старых правил черного списка
+cleanup_old_rules() {
+    echo "Очистка старых правил черного списка..." | tee -a "$LOG_FILE"
+    
+    # Создаем временный файл для хранения текущих правил черного списка
+    local current_rules_file="/tmp/current_blacklist_rules.txt"
+    
+    # Получаем текущие правила с комментарием "Blacklist" и сохраняем их
+    ufw status numbered | grep "Blacklist" | awk -F'[][]' '{print $2}' | sort -nr > "$current_rules_file"
+    
+    # Удаляем только те правила, которые были добавлены этим скриптом
+    if [[ -s "$current_rules_file" ]]; then
+        while read -r rule_num; do
+            if [[ -n "$rule_num" ]]; then
+                # Проверяем, что правило действительно содержит комментарий "Blacklist"
+                if ufw status numbered | grep "\[$rule_num\]" | grep -q "Blacklist"; then
+                    ufw --force delete $rule_num >> "$LOG_FILE" 2>&1
+                    echo "Удалено правило номер $rule_num" >> "$LOG_FILE"
+                fi
+            fi
+        done < "$current_rules_file"
+    fi
+    
+    # Удаляем временный файл
+    rm -f "$current_rules_file"
+}
+
+# Функция для проверки формата подсети (IPv4 или IPv6)
+is_ipv6() {
+    local subnet=$1
+    if [[ $subnet =~ : ]]; then
+        return 0 # IPv6
+    else
+        return 1 # IPv4
+    fi
+}
+
+# Функция для применения правил UFW
+apply_ufw_rules() {
+    echo "Скачивание списка подсетей..." | tee -a "$LOG_FILE"
+    curl -s "$URL" -o "$TEMP_FILE" >> "$LOG_FILE" 2>&1
+    [[ ! -s "$TEMP_FILE" ]] && { echo "Ошибка: не удалось скачать файл подсетей" | tee -a "$LOG_FILE"; exit 1; }
+
+    echo "Чтение подсетей..." | tee -a "$LOG_FILE"
+    subnets=$(cat "$TEMP_FILE")
+    [[ -z "$subnets" ]] && { echo "Ошибка: файл подсетей пуст" | tee -a "$LOG_FILE"; exit 1; }
+
+    total=$(echo "$subnets" | wc -l)
+    current=0
+    added_count=0
+    skipped_count=0
+
+    echo "Применение правил UFW..." | tee -a "$LOG_FILE"
+    while IFS= read -r subnet; do
+        [[ -z "$subnet" ]] && continue
+        
+        # Проверяем, не заблокирован ли уже этот IP/подсеть с комментарием "Blacklist"
+        if ! ufw status | grep "$subnet" | grep -q "Blacklist"; then
+            ufw insert 1 deny from "$subnet" comment "Blacklist" >> "$LOG_FILE" 2>&1
+            ((added_count++))
+        else
+            ((skipped_count++))
+        fi
+        
+        ((current++))
+        show_progress "$current" "$total"
+    done <<< "$subnets"
+    printf "\n"
+    
+    echo "Добавлено новых правил: $added_count" | tee -a "$LOG_FILE"
+    echo "Пропущено существующих правил: $skipped_count" | tee -a "$LOG_FILE"
+}
+
+# Основной процесс
+echo "Запуск скрипта UFW Blacklist..." | tee -a "$LOG_FILE"
+install_ufw
+cleanup_old_rules
+apply_ufw_rules
+rm -f "$TEMP_FILE"
+echo "Скрипт успешно выполнен" | tee -a "$LOG_FILE"

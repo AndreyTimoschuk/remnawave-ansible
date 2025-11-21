@@ -1,0 +1,37 @@
+---
+# ============================================================================
+# Общие переменные для всех RemnaWave нод
+# ============================================================================
+
+# Имя пользователя для создания на серверах
+system_user: "admin"
+
+# Пароль для пользователя (будет захеширован)
+system_user_password: "CHANGE_ME_SECURE_PASSWORD"
+
+# Порт приложения RemnaNode
+app_port: 2222
+
+# IP адрес сервера мониторинга
+monitoring_ip: "192.0.2.100"
+
+# IP адрес Consul сервера
+consul_server_ip: "192.0.2.100"
+
+# Имя хоста панели управления из inventory
+panel_hostname: "panel"
+
+# SSH публичный ключ для доступа к серверам
+# Замените на свой ключ из ~/.ssh/id_rsa.pub
+ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQD... your-email@example.com"
+
+# Cloudflare API токен для автоматического получения SSL сертификатов через DNS
+# Получить можно здесь: https://dash.cloudflare.com/profile/api-tokens
+# Нужны права: Zone:DNS:Edit, Zone:Zone:Read
+cloudflare_api_token: "YOUR_CLOUDFLARE_API_TOKEN_HERE"
+
+# Prometheus Basic Auth для метрик панели
+# Используется в panel.yml и monitoring.yml
+prometheus_remnawave_username: "admin"
+# SHA-512 hash пароля. Генерация: echo -n 'your_password' | sha512sum
+prometheus_remnawave_password: "CHANGE_ME_SHA512_HASH_OF_YOUR_PASSWORD"

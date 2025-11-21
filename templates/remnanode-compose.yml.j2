@@ -1,0 +1,15 @@
+services:
+    remnanode:
+        container_name: remnanode
+        hostname: remnanode
+        image: remnawave/node:latest
+        restart: always
+        network_mode: host
+        env_file:
+            - .env
+        volumes:
+            - /var/log/remnanode:/var/log/remnanode
+            - ./geoip_ru.dat:/usr/local/share/xray/geoip_ru.dat
+            - ./geosite_ru.dat:/usr/local/share/xray/geosite_ru.dat
+            - ./zapret.dat:/usr/local/bin/zapret.dat
+            - /var/lib/remnawave/caddy/certificates:/certificates
