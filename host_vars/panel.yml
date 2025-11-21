@@ -31,3 +31,10 @@ postgres_db: "remnawave"
 # Можно оставить пустым или не указывать - будет использован remnawave_panel_domain
 # sub_public_domain: "sub.example.com"
 
+# Caddy Authentication настройки
+# Учетные данные для входа в Caddy authentication portal
+caddy_auth_admin_user: "admin"
+caddy_auth_admin_email: "admin@example.com"
+# Генерация пароля: openssl rand -base64 24
+caddy_auth_admin_secret: "CHANGE_ME_SECURE_PASSWORD"
+

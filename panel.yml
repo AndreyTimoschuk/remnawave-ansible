@@ -11,6 +11,17 @@
   hosts: panel
   become: yes
   gather_facts: yes
+  
+  vars:
+    # PostgreSQL настройки (можно переопределить в group_vars или host_vars)
+    postgres_user: "remnawave"
+    # Генерация пароля: openssl rand -base64 24
+    postgres_password: "CHANGE_ME_SECURE_PASSWORD"
+    postgres_db: "remnawave"
+    
+    # RemnaWave backend настройки
+    remnawave_domain: "{{ remnawave_panel_domain }}"
+    
   tasks:
     # ============================================================================
     # БЛОК 1: БАЗОВАЯ БЕЗОПАСНОСТЬ И СЕТЬ
@@ -57,6 +68,17 @@
       ufw:
         rule: limit
         port: ssh
+        proto: tcp
+      tags:
+        - firewall
+        - security
+        - ddos-protection
+        - panel-prep
+
+    - name: Настроить UFW rate limiting для защиты HTTPS (443) от DDoS
+      ufw:
+        rule: limit
+        port: '443'
         proto: tcp
       tags:
         - firewall
@@ -583,6 +605,7 @@
     - name: Добавить пользователя {{ system_user }} в группу docker для работы без sudo
       user:
         name: "{{ system_user }}"
+        name: "{{ system_user }}"
         groups: docker
         append: yes
       tags:
@@ -618,6 +641,7 @@
     - name: Создать пользователя {{ system_user }}
       user:
         name: "{{ system_user }}"
+        name: "{{ system_user }}"
         shell: /bin/bash
         create_home: yes
         state: present
@@ -628,6 +652,7 @@
 
     - name: Добавить пользователя {{ system_user }} в группу sudo
       user:
+        name: "{{ system_user }}"
         name: "{{ system_user }}"
         groups: sudo
         append: yes
@@ -654,6 +679,8 @@
         state: directory
         owner: "{{ system_user }}"
         group: "{{ system_user }}"
+        owner: "{{ system_user }}"
+        group: "{{ system_user }}"
         mode: '0700'
       tags:
         - ssh
@@ -662,6 +689,7 @@
 
     - name: Добавить публичный SSH ключ для пользователя {{ system_user }}
       authorized_key:
+        user: "{{ system_user }}"
         user: "{{ system_user }}"
         key: "{{ ssh_public_key }}"
         state: present
@@ -1145,6 +1173,7 @@
         port: 3000
         delay: 5
         timeout: 300
+        timeout: 300
         state: started
       tags:
         - verification
@@ -1163,9 +1192,20 @@
           - "  Пользователь: {{ caddy_auth_admin_user }}"
           - "  Email: {{ caddy_auth_admin_email }}"
           - "  Пароль: {{ caddy_auth_admin_secret }}"
+          - "Доступ к панели: https://{{ remnawave_panel_domain }}"
+          - ""
+          - "УЧЕТНЫЕ ДАННЫЕ ДЛЯ CADDY AUTHENTICATION:"
+          - "  Пользователь: {{ caddy_auth_admin_user }}"
+          - "  Email: {{ caddy_auth_admin_email }}"
+          - "  Пароль: {{ caddy_auth_admin_secret }}"
           - ""
           - "СЛЕДУЮЩИЕ ШАГИ:"
           - "1. Откройте панель в браузере"
+          - "2. Войдите используя учетные данные Caddy Authentication выше"
+          - "3. Зарегистрируйте первого пользователя в RemnaWave (станет администратором)"
+          - "4. Добавьте ноды и получите SECRET_KEY для каждой"
+          - "5. Обновите host_vars/nodeX.yml с полученными SECRET_KEY"
+          - "6. Запустите развертывание нод: ansible-playbook -i inventory.ini nodes.yml"
           - "2. Войдите используя учетные данные Caddy Authentication выше"
           - "3. Зарегистрируйте первого пользователя в RemnaWave (станет администратором)"
           - "4. Добавьте ноды и получите SECRET_KEY для каждой"

@@ -180,7 +180,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ee87im759u4n4b"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "remnawave_users_total",
@@ -243,7 +243,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "adfzqga5fw45cb"
+            "uid": "${datasource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -309,7 +309,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "adfzqga5fw45cb"
+            "uid": "${datasource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -329,7 +329,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bes0omten7doge"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -413,7 +413,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ee87im759u4n4b"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "delta(remnawave_users_total[30d])",
@@ -441,7 +441,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bes0omten7doge"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -526,7 +526,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ee87im759u4n4b"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "count(count_over_time(remnawave_users_status{status=\"ACTIVE\"}[30d:1d]) > 0)",
@@ -554,7 +554,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bes0omten7doge"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -614,7 +614,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ee87im759u4n4b"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "remnawave_node_online_users",
@@ -783,7 +783,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bes0omten7doge"
+        "uid": "${datasource}"
       },
       "description": "Per-interface network traffic (receive and transmit) in bits per second",
       "fieldConfig": {
@@ -905,7 +905,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bes0omten7doge"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -972,7 +972,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "adfzqga5fw45cb"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "remnawave_node_status",
@@ -989,7 +989,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bes0omten7doge"
+        "uid": "${datasource}"
       },
       "description": "All nodes' perfomance at a glance.",
       "fieldConfig": {
@@ -1331,7 +1331,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bes0omten7doge"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "node_uname_info{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"} \n* on (cluster,job,instance)\ngroup_left(pretty_name)\nnode_os_info{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"}\n",
@@ -1342,7 +1342,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bes0omten7doge"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "time() - node_boot_time_seconds{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"}",
@@ -1353,7 +1353,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bes0omten7doge"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "node_load1{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"}",
@@ -1365,7 +1365,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bes0omten7doge"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "count without (cpu) (node_cpu_seconds_total{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\", mode=\"idle\"})",
@@ -1377,7 +1377,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bes0omten7doge"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "(((count by (instance) (count(node_cpu_seconds_total{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"}) by (cpu, instance))) \n- \navg by (instance) (sum by (instance, mode)(irate(node_cpu_seconds_total{mode='idle',cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"}[$__rate_interval])))) * 100) \n/ \ncount by(instance) (count(node_cpu_seconds_total{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"}) by (cpu, instance))\n",
@@ -1389,7 +1389,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bes0omten7doge"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "node_memory_MemTotal_bytes{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"}",
@@ -1401,7 +1401,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bes0omten7doge"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "100 -\n(\n  avg by (instance) (node_memory_MemAvailable_bytes{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"}) /\n  avg by (instance) (node_memory_MemTotal_bytes{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"})\n* 100\n)\n",
@@ -1412,7 +1412,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bes0omten7doge"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "node_filesystem_size_bytes{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\", mountpoint=\"/\", fstype!=\"rootfs\"}",
@@ -1423,7 +1423,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bes0omten7doge"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "100 - node_filesystem_avail_bytes{mountpoint=\"/\",fstype!=\"rootfs\", cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"}/node_filesystem_size_bytes{mountpoint=\"/\",fstype!=\"rootfs\", cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"}*100",
@@ -1434,7 +1434,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bes0omten7doge"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "count by (instance) (max_over_time(ALERTS{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\", alertstate=\"firing\", severity=\"critical\"}[1m])) * group by (instance) (node_uname_info{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"})",
@@ -1445,7 +1445,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bes0omten7doge"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "count by (instance) (max_over_time(ALERTS{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\", alertstate=\"firing\", severity=\"warning\"}[1m])) * group by (instance) (node_uname_info{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"})",
@@ -1539,7 +1539,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bes0omten7doge"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1633,7 +1633,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bes0omten7doge"
+        "uid": "${datasource}"
       },
       "description": "Top 25",
       "fieldConfig": {
@@ -1764,7 +1764,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bes0omten7doge"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "topk(25,\n  100 - avg by (job, instance) (\n    rate(node_cpu_seconds_total{\n      cluster=~\"$cluster\",\n      job=~\"$job\",\n      instance=~\"$instance\",\n      mode=\"idle\"\n    }[$__rate_interval])\n  ) * 100\n)\n",
@@ -1775,7 +1775,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bes0omten7doge"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "avg((((count by (instance) (count(node_cpu_seconds_total{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"}) by (cpu, instance))) \n- \navg by (instance) (sum by (instance, mode)(irate(node_cpu_seconds_total{mode='idle',cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"}[$__rate_interval])))) * 100) \n/ \ncount by(instance) (count(node_cpu_seconds_total{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"}) by (cpu, instance))\n)",
@@ -1791,7 +1791,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bes0omten7doge"
+        "uid": "${datasource}"
       },
       "description": "Top 25",
       "fieldConfig": {
@@ -1917,7 +1917,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bes0omten7doge"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "topk(25, 100 -\n(\n  avg by (job, instance) (\n    node_memory_MemAvailable_bytes{cluster=~\"$cluster\", job=~\"$job\", instance=~\"$instance\"}\n  )\n  /\n  avg by (job, instance) (\n    node_memory_MemTotal_bytes{cluster=~\"$cluster\", job=~\"$job\", instance=~\"$instance\"}\n  )\n) * 100)\n",
@@ -1928,7 +1928,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bes0omten7doge"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "avg(100 -\n(\n  avg by (instance) (node_memory_MemAvailable_bytes{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"}) /\n  avg by (instance) (node_memory_MemTotal_bytes{cluster=~\"$cluster\",job=~\"$job\",instance=~\"$instance\"})\n* 100\n)\n)",
@@ -1949,10 +1949,6 @@
   "templating": {
     "list": [
       {
-        "current": {
-          "text": "prometheus",
-          "value": "bes0omten7doge"
-        },
         "includeAll": false,
         "label": "Data source",
         "name": "datasource",
