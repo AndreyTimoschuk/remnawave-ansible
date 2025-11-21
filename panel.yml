@@ -15,6 +15,7 @@
   vars:
     # PostgreSQL настройки (можно переопределить в group_vars или host_vars)
     postgres_user: "remnawave"
+    # Генерация пароля: openssl rand -base64 24
     postgres_password: "CHANGE_ME_SECURE_PASSWORD"
     postgres_db: "remnawave"
     

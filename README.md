@@ -24,7 +24,7 @@ pip install ansible
 ansible-galaxy collection install community.docker
 
 # Клонировать репозиторий
-git clone https://github.com:AndreyTimoschuk/remnawave-ansible.git
+git clone https://github.com/AndreyTimoschuk/remnawave-ansible.git
 cd remnawave-ansible
 ```
 
@@ -54,7 +54,7 @@ consul_server_ip: "YOUR_PANEL_IP"       # IP Consul сервера (обычно
 panel_hostname: "panel"                 # Имя панели из inventory
 ssh_public_key: "ssh-rsa AAAAB3..."     # Ваш публичный SSH ключ
 prometheus_remnawave_username: "admin"
-prometheus_remnawave_password: "SHA512_HASH"  # echo -n 'pass' | sha512sum
+prometheus_remnawave_password: "SHA512_HASH"  # echo -n 'pass' | sha512sum | cut -d' ' -f1
 ```
 
 #### Переменные панели
@@ -313,7 +313,11 @@ openssl rand -base64 24
 openssl rand -hex 64
 
 # SHA-512 hash для Prometheus
-echo -n 'your_password' | sha512sum
+# Шаг 1: Выберите пароль (например: openssl rand -base64 24)
+# Шаг 2: Создайте hash: echo -n 'your_password' | sha512sum | cut -d' ' -f1
+
+# Webhook secret (64 символа, только буквы и цифры)
+openssl rand -base64 48 | tr -d '=+/' | cut -c1-64
 ```
 
 2. **Создайте SSH ключи:**
