@@ -24,7 +24,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 2,
+  "id": 0,
   "links": [
     {
       "icon": "external link",
@@ -2688,7 +2688,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.2.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "editorMode": "code",
@@ -2811,7 +2811,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.2.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "editorMode": "code",
@@ -2935,7 +2935,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.2.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "editorMode": "code",
@@ -3056,7 +3056,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.2.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "editorMode": "code",
@@ -16001,23 +16001,14 @@
   "templating": {
     "list": [
       {
-        "includeAll": false,
-        "label": "Data source",
-        "name": "datasource",
-        "options": [],
-        "query": "prometheus",
-        "refresh": 1,
-        "regex": "",
-        "type": "datasource"
-      },
-      {
         "current": {
           "text": "prometheus",
           "value": "bes0omten7doge"
         },
+        "hide": 2,
         "includeAll": false,
-        "label": "Datasource",
-        "name": "DS_PROMETHEUS",
+        "label": "Data source",
+        "name": "datasource",
         "options": [],
         "query": "prometheus",
         "refresh": 1,
@@ -16049,45 +16040,22 @@
       },
       {
         "current": {
-          "text": "130987.snk.wtf",
-          "value": "130987.snk.wtf"
+          "text": "turkey",
+          "value": "turkey"
         },
         "datasource": {
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(node_uname_info{job=\"$job\"},nodename)",
-        "includeAll": false,
-        "label": "Nodename",
-        "name": "nodename",
-        "options": [],
-        "query": {
-          "qryType": 1,
-          "query": "label_values(node_uname_info{job=\"$job\"},nodename)",
-          "refId": "PrometheusVariableQueryEditor-VariableQuery"
-        },
-        "refresh": 1,
-        "regex": "",
-        "sort": 1,
-        "type": "query"
-      },
-      {
-        "current": {
-          "text": "germany",
-          "value": "germany"
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "definition": "label_values(node_uname_info{job=\"$job\", nodename=\"$nodename\"}, instance)",
+        "definition": "label_values(node_uname_info,instance)",
         "includeAll": false,
         "label": "Instance",
         "name": "node",
         "options": [],
         "query": {
-          "query": "label_values(node_uname_info{job=\"$job\", nodename=\"$nodename\"}, instance)",
-          "refId": "Prometheus-node-Variable-Query"
+          "qryType": 1,
+          "query": "label_values(node_uname_info,instance)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
         "regex": "",
@@ -16122,5 +16090,5 @@
   "timezone": "utc",
   "title": "Node Exporter Full",
   "uid": "rYdddlPWk",
-  "version": 4
+  "version": 14
 }
