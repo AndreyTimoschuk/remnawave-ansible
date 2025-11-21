@@ -6,8 +6,8 @@
 
 Три Ansible плейбука для полной автоматизации развертывания RemnaWave:
 
-| Плейбук | Назначение | Время |
-|---------|-----------|-------|
+| Плейбук | Назначение |
+|---------|-----------|
 | **panel.yml** | Remnawave panel (PostgreSQL, Redis, Backend, Caddy)
 | **nodes.yml** | Прокси ноды (RemnaNode, Caddy, Consul, мониторинг, селфстил)
 | **monitoring.yml** | Мониторинг (Prometheus, Grafana)
