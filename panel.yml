@@ -11,17 +11,6 @@
   hosts: panel
   become: yes
   gather_facts: yes
-  
-  vars:
-    # PostgreSQL настройки (можно переопределить в group_vars или host_vars)
-    postgres_user: "remnawave"
-    # Генерация пароля: openssl rand -base64 24
-    postgres_password: "CHANGE_ME_SECURE_PASSWORD"
-    postgres_db: "remnawave"
-    
-    # RemnaWave backend настройки
-    remnawave_domain: "{{ remnawave_panel_domain | default('panel.example.com') }}"
-    
   tasks:
     # ============================================================================
     # БЛОК 1: БАЗОВАЯ БЕЗОПАСНОСТЬ И СЕТЬ
@@ -68,6 +57,17 @@
       ufw:
         rule: limit
         port: ssh
+        proto: tcp
+      tags:
+        - firewall
+        - security
+        - ddos-protection
+        - panel-prep
+
+    - name: Настроить UFW rate limiting для защиты HTTPS (443) от DDoS
+      ufw:
+        rule: limit
+        port: '443'
         proto: tcp
       tags:
         - firewall
@@ -582,7 +582,7 @@
 
     - name: Добавить пользователя {{ system_user }} в группу docker для работы без sudo
       user:
-        name: {{ system_user }}
+        name: "{{ system_user }}"
         groups: docker
         append: yes
       tags:
@@ -617,7 +617,7 @@
     # -------- Пользователи --------
     - name: Создать пользователя {{ system_user }}
       user:
-        name: {{ system_user }}
+        name: "{{ system_user }}"
         shell: /bin/bash
         create_home: yes
         state: present
@@ -628,7 +628,7 @@
 
     - name: Добавить пользователя {{ system_user }} в группу sudo
       user:
-        name: {{ system_user }}
+        name: "{{ system_user }}"
         groups: sudo
         append: yes
       tags:
@@ -652,8 +652,8 @@
       file:
         path: /home/{{ system_user }}/.ssh
         state: directory
-        owner: {{ system_user }}
-        group: {{ system_user }}
+        owner: "{{ system_user }}"
+        group: "{{ system_user }}"
         mode: '0700'
       tags:
         - ssh
@@ -662,7 +662,7 @@
 
     - name: Добавить публичный SSH ключ для пользователя {{ system_user }}
       authorized_key:
-        user: {{ system_user }}
+        user: "{{ system_user }}"
         key: "{{ ssh_public_key }}"
         state: present
       tags:
@@ -1144,23 +1144,8 @@
         host: 127.0.0.1
         port: 3000
         delay: 5
-        timeout: 60
+        timeout: 300
         state: started
-      tags:
-        - verification
-        - panel-prep
-
-    - name: Показать информацию о запущенных контейнерах
-      command: docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-      register: docker_ps_output
-      changed_when: false
-      tags:
-        - verification
-        - panel-prep
-
-    - name: Вывести статус контейнеров
-      debug:
-        var: docker_ps_output.stdout_lines
       tags:
         - verification
         - panel-prep
@@ -1172,14 +1157,20 @@
           - "RemnaWave панель успешно развернута!"
           - "============================================"
           - ""
-          - "Доступ к панели: https://{{ remnawave_panel_domain | default('panel.example.com') }}"
+          - "Доступ к панели: https://{{ remnawave_panel_domain }}"
+          - ""
+          - "УЧЕТНЫЕ ДАННЫЕ ДЛЯ CADDY AUTHENTICATION:"
+          - "  Пользователь: {{ caddy_auth_admin_user }}"
+          - "  Email: {{ caddy_auth_admin_email }}"
+          - "  Пароль: {{ caddy_auth_admin_secret }}"
           - ""
           - "СЛЕДУЮЩИЕ ШАГИ:"
           - "1. Откройте панель в браузере"
-          - "2. Зарегистрируйте первого пользователя (станет администратором)"
-          - "3. Добавьте ноды и получите SECRET_KEY для каждой"
-          - "4. Обновите host_vars/nodeX.yml с полученными SECRET_KEY"
-          - "5. Запустите развертывание нод: ansible-playbook -i inventory.ini nodes.yml"
+          - "2. Войдите используя учетные данные Caddy Authentication выше"
+          - "3. Зарегистрируйте первого пользователя в RemnaWave (станет администратором)"
+          - "4. Добавьте ноды и получите SECRET_KEY для каждой"
+          - "5. Обновите host_vars/nodeX.yml с полученными SECRET_KEY"
+          - "6. Запустите развертывание нод: ansible-playbook -i inventory.ini nodes.yml"
           - ""
           - "============================================"
       tags:

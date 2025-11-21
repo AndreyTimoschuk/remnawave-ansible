@@ -22,17 +22,39 @@
     
     - name: Создать директории для мониторинга
       file:
-        path: "{{ item }}"
+        path: "{{ item.path }}"
         state: directory
-        owner: root
-        group: root
-        mode: '0755'
+        owner: "{{ item.owner | default('root') }}"
+        group: "{{ item.group | default('root') }}"
+        mode: "{{ item.mode | default('0755') }}"
       loop:
-        - /opt/monitoring
-        - /var/lib/monitoring/prometheus/data
-        - /var/lib/monitoring/grafana/data
-        - /var/log/prometheus
-        - /var/log/grafana
+        - { path: /opt/monitoring }
+        - { path: /var/lib/monitoring/prometheus/data, owner: '65534', group: '65534', mode: '0755' }
+        - { path: /var/lib/monitoring/grafana/data, owner: '472', group: '472', mode: '0755' }
+        - { path: /var/log/prometheus }
+        - { path: /var/log/grafana }
+      tags:
+        - setup
+        - directories
+
+    - name: Исправить права на директорию Prometheus (если уже существует)
+      file:
+        path: /var/lib/monitoring/prometheus/data
+        owner: '65534'
+        group: '65534'
+        mode: '0755'
+        recurse: yes
+      tags:
+        - setup
+        - directories
+
+    - name: Исправить права на директорию Grafana (если уже существует)
+      file:
+        path: /var/lib/monitoring/grafana/data
+        owner: '472'
+        group: '472'
+        mode: '0755'
+        recurse: yes
       tags:
         - setup
         - directories
@@ -119,24 +141,10 @@
       tags:
         - verification
 
-    - name: Показать информацию о запущенных контейнерах мониторинга
-      command: docker ps --filter "name=prometheus\|grafana\|node_exporter\|xray-checker" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-      register: docker_ps_output
-      changed_when: false
-      tags:
-        - verification
-
-    - name: Вывести статус контейнеров мониторинга
-      debug:
-        var: docker_ps_output.stdout_lines
-      tags:
-        - verification
-
     - name: Показать URL для доступа к сервисам
       debug:
         msg:
-          - "Grafana доступна по адресу: https://monitoring.example.com (или http://{{ ansible_host }}:{{ grafana_port }})"
-          - "Prometheus доступен по адресу: http://{{ ansible_host }}:9090"
+          - "Grafana доступна по адресу: https://{{ monitoring_domain }}"
           - "Не забудьте настроить Grafana data source для Prometheus: http://127.0.0.1:9090"
       tags:
         - verification

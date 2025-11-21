@@ -5,6 +5,12 @@ services:
     hostname: caddy-panel
     restart: always
     network_mode: host
+    environment:
+      - AUTH_TOKEN_LIFETIME={{ caddy_auth_token_lifetime }}
+      - REMNAWAVE_PANEL_DOMAIN={{ remnawave_panel_domain }}
+      - AUTHP_ADMIN_USER={{ caddy_auth_admin_user }}
+      - AUTHP_ADMIN_EMAIL={{ caddy_auth_admin_email }}
+      - AUTHP_ADMIN_SECRET={{ caddy_auth_admin_secret }}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - /var/lib/remnawave/caddy/ssl:/data

@@ -586,7 +586,7 @@
 
     - name: Добавить пользователя {{ system_user }} в группу docker для работы без sudo
       user:
-        name: {{ system_user }}
+        name: "{{ system_user }}"
         groups: docker
         append: yes
       tags:
@@ -1205,7 +1205,7 @@
     # -------- Пользователи --------
     - name: Создать пользователя {{ system_user }}
       user:
-        name: {{ system_user }}
+        name: "{{ system_user }}"
         shell: /bin/bash
         create_home: yes
         state: present
@@ -1216,7 +1216,7 @@
 
     - name: Добавить пользователя {{ system_user }} в группу sudo
       user:
-        name: {{ system_user }}
+        name: "{{ system_user }}"
         groups: sudo
         append: yes
       tags:
@@ -1240,8 +1240,8 @@
       file:
         path: /home/{{ system_user }}/.ssh
         state: directory
-        owner: {{ system_user }}
-        group: {{ system_user }}
+        owner: "{{ system_user }}"
+        group: "{{ system_user }}"
         mode: '0700'
       tags:
         - ssh
@@ -1250,7 +1250,7 @@
 
     - name: Добавить публичный SSH ключ для пользователя {{ system_user }}
       authorized_key:
-        user: {{ system_user }}
+        user: "{{ system_user }}"
         key: "{{ ssh_public_key }}"
         state: present
       tags:

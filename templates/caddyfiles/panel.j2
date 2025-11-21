@@ -15,9 +15,9 @@
         }
 
         authentication portal remnawaveportal {
-            crypto default token lifetime 720h
+            crypto default token lifetime {$AUTH_TOKEN_LIFETIME}
             enable identity store localdb
-            cookie domain {{ remnawave_panel_domain | default('panel.example.com') }}
+            cookie domain {{ remnawave_panel_domain }}
             ui {
                 links {
                     "RemnaWave" "/dashboard/home" icon "las la-tachometer-alt"
@@ -51,9 +51,9 @@
 }
 
 # RemnaWave Panel
-https://{{ remnawave_panel_domain | default('panel.example.com') }} {
+https://{{ remnawave_panel_domain }} {
     route /api/* {
-        reverse_proxy http://remnawave:3000
+        reverse_proxy http://127.0.0.1:3000
     }
 
     handle /r {
@@ -68,13 +68,13 @@ https://{{ remnawave_panel_domain | default('panel.example.com') }} {
 
     route /* {
         authorize with panelpolicy
-        reverse_proxy http://remnawave:3000
+        reverse_proxy http://127.0.0.1:3000
     }
 }
 
 # Grafana Monitoring UI
-https://{{ monitoring_domain | default('monitoring.example.com') }} {
-    reverse_proxy http://127.0.0.1:{{ grafana_port | default('3302') }} {
+https://{{ monitoring_domain }} {
+    reverse_proxy http://127.0.0.1:{{ grafana_port }} {
         header_up Host {host}
     }
 }
