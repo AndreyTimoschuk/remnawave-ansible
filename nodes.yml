@@ -646,18 +646,18 @@
         - security
         - remnawave-prep
 
-    - name: Установить cron задачу для перезапуска WARP интерфейса (2:00 по Москве ежедневно)
-      cron:
-        name: "Перезапуск WARP интерфейса ежедневно (МСК 02:00)"
-        minute: "0"
-        hour: "2"
-        job: "TZ=Europe/Moscow /bin/systemctl restart wg-quick@warp"
-        user: root
-        state: present
-      tags:
-        - cron
-        - warp
-        - remnawave-prep
+    # - name: Установить cron задачу для перезапуска WARP интерфейса (2:00 по Москве ежедневно)
+    #   cron:
+    #     name: "Перезапуск WARP интерфейса ежедневно (МСК 02:00)"
+    #     minute: "0"
+    #     hour: "2"
+    #     job: "TZ=Europe/Moscow /bin/systemctl restart wg-quick@warp"
+    #     user: root
+    #     state: present
+    #   tags:
+    #     - cron
+    #     - warp
+    #     - remnawave-prep
 
     # ============================================================================
     # БЛОК 6: REMNANODE - ПРОКСИ СЕРВЕР
