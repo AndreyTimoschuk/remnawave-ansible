@@ -1,0 +1,80 @@
+# ============================================================================
+# Caddyfile для RemnaWave панели
+# ============================================================================
+# Включает аутентификацию и reverse proxy на панель управления
+# ============================================================================
+
+{
+    order authenticate before respond
+    order authorize before respond
+
+    security {
+        local identity store localdb {
+            realm local
+            path /data/.local/caddy/users.json
+        }
+
+        authentication portal remnawaveportal {
+            crypto default token lifetime {$AUTH_TOKEN_LIFETIME}
+            enable identity store localdb
+            cookie domain {{ remnawave_panel_domain }}
+            ui {
+                links {
+                    "RemnaWave" "/dashboard/home" icon "las la-tachometer-alt"
+                    "My Identity" "/r/whoami" icon "las la-user"
+                    "API Keys" "/r/settings/apikeys" icon "las la-key"
+                    "MFA" "/r/settings/mfa" icon "lab la-keycdn"
+                }
+            }
+            transform user {
+                match origin local
+                action add role authp/admin
+            }
+        }
+
+        authorization policy panelpolicy {
+            set auth url /r
+            allow roles authp/admin
+            with api key auth portal remnawaveportal realm local
+            acl rule {
+                comment "Accept"
+                match role authp/admin
+                allow stop log info
+            }
+            acl rule {
+                comment "Deny"
+                match any
+                deny log warn
+            }
+        }
+    }
+}
+
+# RemnaWave Panel
+https://{{ remnawave_panel_domain }} {
+    route /api/* {
+        reverse_proxy http://127.0.0.1:3000
+    }
+
+    handle /r {
+        rewrite * /auth
+        request_header +X-Forwarded-Prefix /r
+        authenticate with remnawaveportal
+    }
+
+    route /r* {
+        authenticate with remnawaveportal
+    }
+
+    route /* {
+        authorize with panelpolicy
+        reverse_proxy http://127.0.0.1:3000
+    }
+}
+
+# Grafana Monitoring UI
+https://{{ monitoring_domain }} {
+    reverse_proxy http://127.0.0.1:{{ grafana_port }} {
+        header_up Host {host}
+    }
+}

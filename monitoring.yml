@@ -145,7 +145,7 @@
       debug:
         msg:
           - "Grafana доступна по адресу: https://{{ monitoring_domain }}"
-          - "Не забудьте настроить Grafana data source для Prometheus: http://127.0.0.1:9090"
+          - "!!! ВАЖНО: Не забудьте настроить Grafana data source для Prometheus: http://127.0.0.1:9090"
       tags:
         - verification
 
