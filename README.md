@@ -53,7 +53,6 @@ monitoring_ip: "YOUR_PANEL_IP"          # IP панели
 consul_server_ip: "YOUR_PANEL_IP"       # IP Consul сервера (обычно = панели)
 panel_hostname: "panel"                 # Имя панели из inventory
 ssh_public_key: "ssh-rsa AAAAB3..."     # Ваш публичный SSH ключ
-cloudflare_api_token: "YOUR_TOKEN"      # Cloudflare API токен
 prometheus_remnawave_username: "admin"
 prometheus_remnawave_password: "SHA512_HASH"  # echo -n 'pass' | sha512sum
 ```
@@ -81,11 +80,6 @@ SECRET_KEY: "GET_FROM_PANEL_AFTER_ADDING_NODE"
 
 ```caddyfile
 https://cdn.example.com {
-    tls {
-        dns cloudflare {
-            api_token {{ cloudflare_api_token }}
-        }
-    }
     root * /srv/static-site
     file_server
 }
@@ -253,7 +247,6 @@ monitoring_ip: "PANEL_IP"               # IP мониторинга
 consul_server_ip: "PANEL_IP"            # IP Consul
 panel_hostname: "panel"                 # Имя панели из inventory
 ssh_public_key: "ssh-rsa ..."           # SSH ключ
-cloudflare_api_token: "token"           # Cloudflare токен
 prometheus_remnawave_username: "admin"  # Prometheus auth
 prometheus_remnawave_password: "hash"   # SHA-512 hash
 ```
@@ -265,7 +258,6 @@ SECRET_KEY: "from_panel"                        # Если панель = нод
 remnawave_panel_domain: "panel.example.com"     # Домен панели
 monitoring_domain: "monitoring.example.com"     # Домен Grafana
 grafana_port: 3302                              # Порт Grafana
-caddy_cloudflare_token_alt: "token"             # Альтернативный токен
 ```
 
 ### host_vars/nodeX.yml
@@ -331,11 +323,6 @@ ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
 cat ~/.ssh/id_rsa.pub  # Добавить в group_vars/nodes.yml
 ```
 
-3. **Cloudflare API Token:**
-   - Зайти на https://dash.cloudflare.com/profile/api-tokens
-   - Create Token → Edit zone DNS
-   - Скопировать токен
-
 ### После развертывания
 
 ```bash
@@ -360,60 +347,14 @@ ssh root@YOUR_IP "docker ps"
    - Type: Prometheus
    - URL: `http://127.0.0.1:9090`
    - Save & Test
-4. Импортируйте дашборд:
-   - Create → Import → Dashboard ID: `1860`
-   - Select Prometheus data source
-   - Import
-
-## Troubleshooting
-
-### Проблема: "Permission denied (publickey)"
-
-```bash
-# Добавить SSH ключ на сервер
-ssh-copy-id root@YOUR_SERVER_IP
-```
-
-### Проблема: "SECRET_KEY is not defined"
-
-1. Развернуть панель
-2. Зарегистрироваться
-3. Добавить ноду в панели
-4. Скопировать SECRET_KEY
-5. Добавить в `host_vars/nodeX.yml`
-
-### Проблема: Caddy не получает сертификаты
-
-```bash
-# Проверить DNS
-dig yourdomain.com
-
-# Проверить логи Caddy
-ssh root@YOUR_IP "docker logs caddy"
-
-# Проверить Cloudflare токен
-# Токен должен иметь права: Zone:DNS:Edit, Zone:Zone:Read
-```
-
-### Проблема: "Port 443 already in use"
-
-```bash
-# Проверить что занимает порт
-ssh root@YOUR_IP "netstat -tulpn | grep :443"
-
-# Остановить конфликтующий сервис
-ssh root@YOUR_IP "systemctl stop nginx"  # или apache2
-```
-
-### Проблема: Docker контейнеры не запускаются
-
-```bash
-# Проверить логи
-ssh root@YOUR_IP "docker compose -f /opt/remnawave/docker-compose.yml logs"
-
-# Проверить ресурсы
-ssh root@YOUR_IP "df -h && free -h"
-```
+4. Импортируйте дашборды вручную:
+   - Create → Import
+   - Нажмите "Upload JSON file"
+   - Загрузите файлы из `templates/`:
+     - `Linux node _ fleet overview-1763743007941.json`
+     - `Node Exporter Full-1763743021570.json`
+   - Выберите Prometheus data source
+   - Нажмите "Import"
 
 ## Обновления
 
@@ -454,29 +395,6 @@ ssh root@YOUR_NODE_IP "/opt/remnanode/update-geo-files.sh"
 | Logrotate | Ежедневно | Ротация всех логов |
 | Security updates | Автоматически | Обновления безопасности |
 
-## Порты
-
-### Панель (panel):
-
-| Порт | Назначение | Доступ |
-|------|-----------|--------|
-| 443 | HTTPS (Caddy) | Интернет |
-| 3000 | RemnaWave Backend | localhost |
-| 5432 | PostgreSQL | localhost |
-| 6379 | Redis | localhost |
-| 8500 | Consul API | localhost + ноды |
-| 9090 | Prometheus | localhost |
-| 3302 | Grafana | localhost (через Caddy) |
-
-### Ноды (nodes):
-
-| Порт | Назначение | Доступ |
-|------|-----------|--------|
-| 443 | HTTPS (Caddy) | Интернет |
-| 2222 | RemnaNode | localhost |
-| 9100 | Node Exporter | Панель |
-| 8500 | Consul Agent | Панель |
-| SSH | SSH | Ограничено |
 
 ## Примеры Caddyfile
 
@@ -484,11 +402,6 @@ ssh root@YOUR_NODE_IP "/opt/remnanode/update-geo-files.sh"
 
 ```caddyfile
 https://cdn.example.com {
-    tls {
-        dns cloudflare {
-            api_token {{ cloudflare_api_token }}
-        }
-    }
     root * /srv/static-site
     file_server
 }
@@ -498,11 +411,6 @@ https://cdn.example.com {
 
 ```caddyfile
 https://cdn.example.com:8443 {
-    tls {
-        dns cloudflare {
-            api_token {{ cloudflare_api_token }}
-        }
-    }
     root * /srv/static-site
     file_server
 }
@@ -512,21 +420,11 @@ https://cdn.example.com:8443 {
 
 ```caddyfile
 https://cdn-1.example.com:843 {
-    tls {
-        dns cloudflare {
-            api_token {{ cloudflare_api_token }}
-        }
-    }
     root * /srv/static-site
     file_server
 }
 
 https://cdn-2.example.com:843 {
-    tls {
-        dns cloudflare {
-            api_token {{ cloudflare_api_token }}
-        }
-    }
     root * /srv/static-site
     file_server
 }
@@ -618,30 +516,10 @@ ansible-playbook -i inventory.ini panel.yml --limit panel
 ansible-playbook -i inventory.ini monitoring.yml --limit monitoring
 ```
 
-**Q: Как изменить пользователя?**
-
-A: Измените `system_user` в `group_vars/nodes.yml`
-
-**Q: Как использовать Ansible Vault для секретов?**
-
-```bash
-# Создать vault
-ansible-vault create group_vars/vault.yml
-
-# Добавить секреты в vault.yml
-cloudflare_api_token: "real_token"
-postgres_password: "real_password"
-
-# Запустить с vault
-ansible-playbook -i inventory.ini panel.yml --ask-vault-pass
-```
-
 **Q: Сколько RAM нужно?**
 
 - Минимум для ноды: 1GB (будет создан swap)
-- Рекомендовано для ноды: 2GB
 - Минимум для панели: 2GB
-- Рекомендовано для панели: 4GB
 
 **Q: Поддерживаются ли другие ОС?**
 
@@ -650,12 +528,6 @@ ansible-playbook -i inventory.ini panel.yml --ask-vault-pass
 ## Лицензия
 
 MIT License - используйте как хотите.
-
-## Поддержка
-
-- Issues: GitHub Issues
-- Документация RemnaWave: https://remna.st/docs
-- Telegram: @remnawave (если есть)
 
 ---
 

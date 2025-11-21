@@ -6,36 +6,18 @@
 
 # Первый домен на порту 843
 https://cdn-1.example.com:843 {
-    tls {
-        dns cloudflare {
-            api_token {{ cloudflare_api_token }}
-        }
-    }
-
     root * /srv/static-site
     file_server
 }
 
 # Второй домен на том же порту
 https://cdn-2.example.com:843 {
-    tls {
-        dns cloudflare {
-            api_token {{ cloudflare_api_token }}
-        }
-    }
-
     root * /srv/static-site
     file_server
 }
 
-# Третий домен с другим токеном (если нужно)
+# Третий домен
 https://special.example.com:843 {
-    tls {
-        dns cloudflare {
-            api_token {{ caddy_cloudflare_token_alt | default(cloudflare_api_token) }}
-        }
-    }
-
     root * /srv/another-site
     file_server
 }

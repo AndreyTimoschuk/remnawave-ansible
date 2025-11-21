@@ -6,12 +6,6 @@
 
 # Один домен на стандартном HTTPS порту (443)
 https://cdn.example.com {
-    tls {
-        dns cloudflare {
-            api_token {{ cloudflare_api_token }}
-        }
-    }
-
     # Статический файловый сервер
     root * /srv/static-site
     file_server

@@ -35,38 +35,3 @@ services:
       nofile:
         soft: 65536
         hard: 65536
-
-  # Xray Checker для проверки работоспособности прокси (закомментировано)
-  # Раскомментируйте после развертывания панели и получения subscription URL
-  # xray-checker:
-  #   image: kutovoys/xray-checker
-  #   container_name: xray-checker
-  #   network_mode: host
-  #   restart: unless-stopped
-  #   user: "nonroot:nonroot"
-  #   environment:
-  #     - METRICS_PASSWORD=CHANGE_ME_SECURE_PASSWORD
-  #     - METRICS_USERNAME=xray_checker
-  #     - METRICS_HOST=0.0.0.0
-  #     - METRICS_PORT=2112
-  #     - METRICS_BASE_PATH=/xray/monitor
-  #     - METRICS_PROTECTED=true
-  #     - METRICS_INSTANCE=remnawave_check
-  #     - XRAY_LOG_LEVEL=none
-  #     - RUN_ONCE=false
-  #     - SIMULATE_LATENCY=true
-  #     - PROXY_CHECK_METHOD=status
-  #     - PROXY_CHECK_INTERVAL=120
-  #     - PROXY_TIMEOUT=60
-  #     - SUBSCRIPTION_URL=https://panel.example.com/subscription/YOUR_SUBSCRIPTION_ID
-  #     - SUBSCRIPTION_UPDATE=true
-  #     - SUBSCRIPTION_UPDATE_INTERVAL=300
-  #     - PROXY_IP_CHECK_URL=https://api.ipify.org?format=text
-  #     - PROXY_STATUS_CHECK_URL=http://cp.cloudflare.com/generate_204
-  #     - XRAY_START_PORT=10000
-  #     - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
-  #   ulimits:
-  #     nofile:
-  #       soft: 65536
-  #       hard: 65536
-

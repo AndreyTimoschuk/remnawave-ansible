@@ -52,12 +52,6 @@
 
 # RemnaWave Panel
 https://{{ remnawave_panel_domain | default('panel.example.com') }} {
-    tls {
-        dns cloudflare {
-            api_token {{ caddy_cloudflare_token_alt | default(cloudflare_api_token) }}
-        }
-    }
-
     route /api/* {
         reverse_proxy http://remnawave:3000
     }
@@ -80,12 +74,6 @@ https://{{ remnawave_panel_domain | default('panel.example.com') }} {
 
 # Grafana Monitoring UI
 https://{{ monitoring_domain | default('monitoring.example.com') }} {
-    tls {
-        dns cloudflare {
-            api_token {{ caddy_cloudflare_token_alt | default(cloudflare_api_token) }}
-        }
-    }
-    
     reverse_proxy http://127.0.0.1:{{ grafana_port | default('3302') }} {
         header_up Host {host}
     }

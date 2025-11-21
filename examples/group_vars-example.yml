@@ -27,11 +27,6 @@ panel_hostname: "panel"
 # Получить: cat ~/.ssh/id_rsa.pub
 ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQD... your-email@example.com"
 
-# Cloudflare API токен для автоматического получения SSL сертификатов
-# Получить: https://dash.cloudflare.com/profile/api-tokens
-# Права: Zone:DNS:Edit, Zone:Zone:Read для всех зон
-cloudflare_api_token: "your_cloudflare_api_token_here"
-
 # Prometheus Basic Auth для метрик панели
 # Используется в panel.yml и monitoring.yml
 prometheus_remnawave_username: "admin"

@@ -15,6 +15,3 @@ SECRET_KEY: "eyJub2RlQ2VydFBlbSI6Ii0tLS0tQkVHSU4gQ0VSVElGSUNBVEUtLS0tLS..."
 # Опционально: Переопределить порт приложения для конкретной ноды
 # app_port: 3333
 
-# Опционально: Кастомный Cloudflare токен для ноды
-# cloudflare_api_token: "node_specific_token"
-

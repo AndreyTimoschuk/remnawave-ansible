@@ -15,6 +15,3 @@ monitoring_domain: "monitoring.example.com"
 # Порт Grafana (по умолчанию 3302)
 grafana_port: 3302
 
-# Cloudflare API токен (если отличается от основного)
-caddy_cloudflare_token_alt: "YOUR_CLOUDFLARE_API_TOKEN_HERE"
-

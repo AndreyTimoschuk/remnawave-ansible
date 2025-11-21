@@ -18,9 +18,6 @@ monitoring_domain: "monitoring.yourdomain.com"
 # Порт Grafana (по умолчанию 3302)
 grafana_port: 3302
 
-# Cloudflare API токен (если отличается от основного)
-caddy_cloudflare_token_alt: "your_cloudflare_token_here"
-
 # PostgreSQL настройки (опционально переопределить)
 # postgres_user: "remnawave"
 # postgres_password: "secure_password_here"

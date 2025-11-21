@@ -51,7 +51,6 @@ ansible-playbook -i inventory.ini nodes.yml
 ## 💡 Советы
 
 - Начните с простого Caddyfile, потом добавляйте сложность
-- Используйте разные Cloudflare токены для dev/prod
 - Храните секреты в Ansible Vault
 - Тестируйте на одной ноде перед массовым развертыванием
 

@@ -5,12 +5,6 @@
 # ============================================================================
 
 https://cdn.example.com:843 {
-    tls {
-        dns cloudflare {
-            api_token {{ cloudflare_api_token }}
-        }
-    }
-
     root * /srv/static-site
     file_server
 }

@@ -18,12 +18,6 @@
 
 # Домен на кастомном порту 8443
 https://cdn-node1.example.com:8443 {
-    tls {
-        dns cloudflare {
-            api_token {{ cloudflare_api_token }}
-        }
-    }
-
     root * /srv/static-site
     file_server
 }
