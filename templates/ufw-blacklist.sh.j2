@@ -47,36 +47,34 @@ install_ufw() {
 cleanup_old_rules() {
     echo "Очистка старых правил черного списка..." | tee -a "$LOG_FILE"
     
-    # Получаем все номера правил с комментарием "Blacklist" и сортируем в обратном порядке
-    # Это важно: удаляем от большего номера к меньшему, чтобы номера не сдвигались
-    local current_rules_file="/tmp/current_blacklist_rules.txt"
-    ufw status numbered | grep "Blacklist" | awk -F'[][]' '{print $2}' | sort -rn > "$current_rules_file"
-    
     local deleted_count=0
+    local rules_file="/tmp/current_blacklist_rules_lines.txt"
     
-    # Удаляем правила в обратном порядке (от большего номера к меньшему)
-    if [[ -s "$current_rules_file" ]]; then
-        while read -r rule_num; do
-            if [[ -n "$rule_num" ]]; then
-                # Дополнительная проверка: убеждаемся, что правило все еще существует и содержит комментарий "Blacklist"
-                if ufw status numbered 2>/dev/null | grep "\[$rule_num\]" | grep -q "Blacklist"; then
-                    # Удаляем правило по номеру (используем --force для автоматического подтверждения)
-                    ufw --force delete $rule_num >> "$LOG_FILE" 2>&1
-                    if [[ $? -eq 0 ]]; then
-                        echo "Удалено правило номер $rule_num с комментарием Blacklist" >> "$LOG_FILE"
-                        ((deleted_count++))
-                    else
-                        echo "Ошибка при удалении правила номер $rule_num" >> "$LOG_FILE"
-                    fi
-                else
-                    echo "Правило номер $rule_num больше не существует или не содержит комментарий Blacklist, пропускаем" >> "$LOG_FILE"
-                fi
+    # Получаем строки с правилами, где присутствует комментарий Blacklist
+    ufw status numbered 2>/dev/null | grep -E '#\s*Blacklist' > "$rules_file"
+    
+    if [[ -s "$rules_file" ]]; then
+        while IFS= read -r line; do
+            rule=$(echo "$line" \
+                | sed -E 's/^\[[0-9 ]+\]\s+//' \
+                | sed -E 's/[[:space:]]+#.*$//' \
+                | awk '{$1=$1; print}')
+            
+            if [[ -z "$rule" ]]; then
+                echo "Не удалось разобрать строку правила: $line" >> "$LOG_FILE"
+                continue
             fi
-        done < "$current_rules_file"
+            
+            if ufw --force delete $rule >> "$LOG_FILE" 2>&1; then
+                echo "Удалено правило: $rule" >> "$LOG_FILE"
+                ((deleted_count++))
+            else
+                echo "Ошибка при удалении правила: $rule" >> "$LOG_FILE"
+            fi
+        done < "$rules_file"
     fi
     
-    # Удаляем временный файл
-    rm -f "$current_rules_file"
+    rm -f "$rules_file"
     
     echo "Очистка завершена. Удалено правил: $deleted_count" | tee -a "$LOG_FILE"
 }
